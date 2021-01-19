@@ -1,2 +1,3 @@
-# psy
-NeuroSpin Psy scripts
+# NeusoSpin Datasets
+
+Processing scripts of NeusoSpin dataset
