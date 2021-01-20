@@ -5,8 +5,12 @@ Created on Mon Apr 15 15:11:34 2019
 
 @author: edouard.duchesnay@cea.fr
 
+Sources:
+
 cp /neurospin/lnao/Pdiff/josselin/laurie-anne/pull_data/bipolar_transcoding_psy_keep.csv /neurospin/psy/bipolar/biobd/code/bipolar_transcoding_remove_duclicates_laurie-anne_20190415.csv
 cp /neurospin/lnao/Pdiff/josselin/laurie-anne/pull_data/biodb_clinical.csv /neurospin/psy/bipolar/biobd/code/biodb_clinical_laurie-anne_20190415.csv
+
+Population description
 
              TIV        age
 sex
@@ -35,28 +39,33 @@ control           1428.363433  39.847359
 """
 
 import os
+import os.path
+import glob
+import re
+import click
 import numpy as np
 import pandas as pd
-import glob
-#import nibabel as nib  # import generate a FutureWarning
-#import matplotlib.pyplot as plt
-import os.path
-#import scipy.io
-#import scipy.linalg
-#import shutil
-#import xml.etree.ElementTree as ET
-import subprocess
-import re
-import glob
 
 
-STUDY_PATH = '/neurospin/psy_sbox/bipolar-biobd'
+#%% INPUTS:
+
+STUDY_PATH = '/neurospin/psy/biobd'
 CLINIC_CSV = '/neurospin/psy/all_studies/phenotype/phenotypes_SCHIZCONNECT_VIP_PRAGUE_BSNIP_BIOBD_ICAAR_START_20201223.tsv'
+NII_FILENAMES = glob.glob(
+    os.path.join(STUDY_PATH, "derivatives/cat12-12.6_vbm/sub-*/ses-V1/anat/mri/mwp1*.nii"))
+assert len(NII_FILENAMES) == 746
+
+#%% OUTPUTS:
+
+OUTPUT_DIR = STUDY_PATH
 
 
 #%% Make participants file
 
-def make_participants():
+@click.command()
+@click.option('--output', type=str, help='Output dir', default=OUTPUT_DIR)
+@click.option('--dry', is_flag=True, help='Dry Run: no files are written, only check')
+def make_participants(output, dry):
     """Make participants file.
     1. Read CLINIC_CSV agregated by Anton, checked with Laurie Anne,
     2. Read VBM images
@@ -83,8 +92,7 @@ def make_participants():
 
 
     #%% Read mwp1
-    ni_biobd_filenames = glob.glob(
-        os.path.join(STUDY_PATH, "derivatives/cat12/vbm/sub-*/ses-V1/anat/mri/mwp1*.nii"))
+    ni_biobd_filenames = NII_FILENAMES
     assert len(ni_biobd_filenames) == 746
 
     def _get_participants_sesssion(filenames):
@@ -125,10 +133,17 @@ def make_participants():
     assert participants.shape == (697, 52)
 
     # Save This one as the participants file
-    participants.to_csv(os.path.join(STUDY_PATH, "participants.tsv"),
-                        index=False, sep="\t")
+    participants_filename = os.path.join(output, "participants.tsv")
+    if not dry:
+        print("======================")
+        print("= Save data to: %s" % participants_filename)
+        print("======================")
+        participants.to_csv(participants_filename, index=False, sep="\t")
+    else:
+        print("= Dry run do not save to %s" % participants_filename)
 
-    # Sex mapping: {'F':1.0,'H':0.0}
+    # Sex mapping:
+    # participants['sex'] = participants.sex.map({0:"M", 1:"F"})
     print(participants[["sex", "TIV", 'age']].groupby('sex').mean())
     print(participants[["diagnosis", "TIV", 'age']].groupby('diagnosis').mean())
     print({lev:np.sum(participants["diagnosis"]==lev) for lev in participants["diagnosis"].unique()})
@@ -138,10 +153,3 @@ def make_participants():
 if __name__ == "__main__":
     # execute only if run as a script
     participants = make_participants()
-
-    # Sex Mapping:
-    participants['sex'] = participants.sex.map({0:"M", 1:"F"})
-    # Check using TIV M (1) have larger TIV:
-    participants[["sex", "TIV"]].groupby("sex").mean()
-    make_participants()
-

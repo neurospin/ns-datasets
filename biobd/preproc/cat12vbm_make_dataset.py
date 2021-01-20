@@ -30,19 +30,19 @@ from sklearn import preprocessing
 from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import KFold
 
-# Global variables
-STUDY_PATH = '/neurospin/psy_sbox/biobd'
-NII_FILENAMES = glob.glob("/neurospin/psy/biobd/derivatives/cat12-12.6_vbm/sub-*/ses-V1/anat/mri/mwp1*.nii")
-OUTPUT_DIR = "/neurospin/psy/datasets"
-OUTPUT_FILENAME = "{dirname}/biobd_cat12vbm_{datatype}_%s.{ext}" % \
-    str(datetime.date.today()).replace("-","")
+#%% INPUTS:
 
-# OUTPUT_FILENAME.format(dirname="/tmp", datatype="rois", ext="csv")
-# OUTPUT_FILENAME.format(dirname="/tmp", datatype="mwp1", ext="npy")
-# OUTPUT_FILENAME.format(dirname="/tmp", datatype="participants", ext="csv")
+STUDY_PATH = '/neurospin/psy/biobd'
+NII_FILENAMES = glob.glob(
+    os.path.join(STUDY_PATH, "derivatives/cat12-12.6_vbm/sub-*/ses-V1/anat/mri/mwp1*.nii"))
+assert len(NII_FILENAMES) == 746
 
-# STUDY_PATH_schizconnect = '/neurospin/psy/schizconnect-vip-prague'
-# CLINIC_CSV = os.path.join(STUDY_PATH, 'phenotype/build_dataset/phenotypes_SCHIZCONNECT_VIP_PRAGUE_BSNIP_BIOBD_ICAAR_START.tsv')
+#%% OUTPUTS:
+
+OUTPUT_DIR = "/neurospin/psy/all_studies/datasets"
+#OUTPUT_FILENAME = "{dirname}/biobd_cat12vbm_{datatype}_%s.{ext}" % \
+#    str(datetime.date.today()).replace("-","")
+OUTPUT_FILENAME = "{dirname}/biobd_cat12vbm_{datatype}.{ext}"
 
 
 def read_data():
@@ -192,7 +192,8 @@ def laurie_anne_qc(participants):
 @click.command()
 @click.option('--output', type=str, help='Output dir', default=OUTPUT_DIR)
 @click.option('--nogs', is_flag=True, help='No global scaling to the Total Intracranial volume')
-def make_dataset(output, nogs):
+@click.option('--dry', is_flag=True, help='Dry Run: no files are written, only check')
+def make_dataset(output, nogs, dry):
     """ Make BIOBD cat12BVM dataset, create mpw1, rois, mask and participants file
 
     Parameters
@@ -242,21 +243,23 @@ def make_dataset(output, nogs):
     mask_img = nibabel.load(os.path.join(output, "mni_cerebrum-mask.nii.gz"))
     assert np.all(mask_img.affine == target_img.affine), "Data shape do not match cat12VBM"
 
-    print("======================")
-    print("= Save data to: %s" % output)
-    print("======================")
-
     participants_filename = OUTPUT_FILENAME.format(dirname=output, datatype="participants", ext="csv")
     rois_filename = OUTPUT_FILENAME.format(dirname=output, datatype="rois%s" % preproc_str, ext="csv")
     vbm_filename = OUTPUT_FILENAME.format(dirname=output, datatype="mwp1%s" % preproc_str, ext="npy")
 
-    participants.to_csv(participants_filename, index=False)
-    rois.to_csv(rois_filename, index=False)
-    #target_img.save()  # No need to save the reference image since it is identical to the mask
-    np.save(vbm_filename, imgs_arr)
+    if not dry:
+        print("======================")
+        print("= Save data to: %s" % output)
+        print("======================")
 
-    print(participants_filename, rois_filename, vbm_filename)
+        participants.to_csv(participants_filename, index=False)
+        rois.to_csv(rois_filename, index=False)
+        #target_img.save()  # No need to save the reference image since it is identical to the mask
+        np.save(vbm_filename, imgs_arr)
 
+        print(participants_filename, rois_filename, vbm_filename)
+    else:
+        print("= Dry run do not save to %s" % participants_filename)
 
     #%% QC1: Basic ML brain age
 
