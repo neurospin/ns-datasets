@@ -159,14 +159,31 @@ def fetch_data(files, dst, base_url, verbose=1):
 
 #%% Read Laurie-Anne QC and save it into derivatives/cat12-12.6_vbm_qc/qc.tsv
 
-def laurie_anne_qc(participants):
+def laurie_anne_qc():
     """Read Laurie-Anne QC and save it into derivatives/cat12-12.6_vbm_qc/qc.tsv
     """
+    participants = pd.read_csv(os.path.join(STUDY_PATH, "participants.tsv"), sep='\t')
+    participants.participant_id = participants.participant_id.astype(str)
+
+    qc = pd.read_csv(os.path.join(STUDY_PATH,
+         'derivatives/cat12-12.6_vbm_qc/qc.tsv'), sep= "\t")
+
+    # # We should use the cat12_qc_laurie-anne_20190627.csv but for some reason
+    # # Laurie-anne used another file see bellow
+    # laurie = pd.read_csv(os.path.join(STUDY_PATH,
+    #     'derivatives/cat12-12.6_vbm_qc-laurie-anne/cat12_qc_laurie-anne_20190627.csv'))
+    # laurie.participant_id = [s.replace("sub-", "") for s in laurie.participant_id.astype(str)]
+    # laurie.participant_id = laurie.participant_id.astype(str)
+    # laurie = laurie[laurie.qc_cat12 == 1]
+    # laurie = laurie[laurie.participant_id.isin(participants.participant_id)]
+
+    # qc["qc_laurie-anne2"] = 0
+    # qc.loc[qc.participant_id.isin(laurie.participant_id), "qc_laurie-anne2"] = 1
+
     laurie = pd.read_csv(os.path.join(STUDY_PATH,
         'derivatives/cat12-12.6_vbm_qc-laurie-anne/norm_dataset_cat12_bsnip_biobd.tsv'), sep='\t')
     laurie.participant_id = laurie.participant_id.astype(str)
     assert laurie.shape == (993, 183)
-    s = laurie.participant_id[0]
     laurie["is_biobd"] = [not s.startswith('INV') for s in laurie.participant_id]
     laurie = laurie[laurie["is_biobd"]]
 

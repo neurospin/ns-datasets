@@ -41,10 +41,11 @@ control           1428.363433  39.847359
 import os
 import os.path
 import glob
-import re
 import click
 import numpy as np
 import pandas as pd
+
+from nitk import bids
 
 
 #%% INPUTS:
@@ -95,13 +96,16 @@ def make_participants(output, dry):
     ni_biobd_filenames = NII_FILENAMES
     assert len(ni_biobd_filenames) == 746
 
-    def _get_participants_sesssion(filenames):
-        participant_re = re.compile("sub-([^_/]+)")
-        session_re = re.compile("ses-([^_/]+)/")
-        return pd.DataFrame([[participant_re.findall(filename)[0], session_re.findall(filename)[0]] + [filename]
-                for filename in filenames], columns=["participant_id", "session", "mwp1_filename"])
+    # def _get_participants_sesssion(filenames):
+    #     participant_re = re.compile("sub-([^_/]+)")
+    #     session_re = re.compile("ses-([^_/]+)/")
+    #     return pd.DataFrame([[participant_re.findall(filename)[0], session_re.findall(filename)[0]] + [filename]
+    #             for filename in filenames], columns=["participant_id", "session", "mwp1_filename"])
 
-    ni_biobd_df = _get_participants_sesssion(ni_biobd_filenames)
+    # ni_biobd_df = _get_participants_sesssion(ni_biobd_filenames)
+
+    ni_biobd_df = pd.DataFrame([pd.Series(bids.get_keys(filename))
+                                for filename in ni_biobd_filenames])
 
     # Keep only participants with processed T1
     participants = pd.merge(participants, ni_biobd_df, on="participant_id")
@@ -123,9 +127,6 @@ def make_participants(output, dry):
 
     # assert tivo_schizconnect.shape == (738, 6)
     # assert len(ni_schizconnect_filenames) == 738
-
-    # assert tivo_bsnip.shape == (1042, 6)
-    # assert len(ni_bsnip_filenames) == 1042
 
     assert tivo_biobd.shape ==  (746, 5)
 
