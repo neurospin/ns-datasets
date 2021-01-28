@@ -14,8 +14,8 @@ Population description
 
              TIV        age
 sex
-0.0  1485.537341  39.024742
-1.0  1366.405783  38.558532
+0.0  1480.877380  39.969044
+1.0  1365.625379  39.252639
                           TIV        age
 diagnosis
 ADHD              1615.635245  20.000000
@@ -24,17 +24,15 @@ EDM               1299.802870  17.000000
 MDE, ADHD, panic  1717.615129  16.000000
 MDE, PTSD         1397.231961  23.000000
 SU, panic         1794.500488  20.000000
-bipolar disorder  1401.497266  39.665231
+bipolar disorder  1401.771065  39.656550
 control           1428.363433  39.847359
-
 {'control': 356,
- 'bipolar disorder': 306,
+ 'bipolar disorder': 307,
  'ADHD, SU': 1,
- nan: 0,
  'EDM': 1,
  'MDE, ADHD, panic': 1,
- 'SU, panic': 1, '
- MDE, PTSD': 1,
+ 'SU, panic': 1,
+ 'MDE, PTSD': 1,
  'ADHD': 1}
 """
 
@@ -84,12 +82,15 @@ def make_participants(output, dry):
     participants.participant_id = participants.participant_id.astype(str)
 
     assert participants.shape == (3857, 46)
-    # rm subjects with missing age or site
-    participants = participants[participants.sex.notnull() & participants.age.notnull()]
-    assert participants.shape == (2697, 46)
+    # rm subjects with missing sex, age, site or diagnosis
+    participants = participants[participants.sex.notnull() &
+                                participants.age.notnull() &
+                                participants.site.notnull() &
+                                participants.diagnosis.notnull()]
+    assert participants.shape == (2663, 46)
 
     participants = participants[participants.study == 'BIOBD']
-    assert participants.shape == (697, 46)
+    assert participants.shape == (669, 46)
 
 
     #%% Read mwp1
@@ -109,7 +110,7 @@ def make_participants(output, dry):
 
     # Keep only participants with processed T1
     participants = pd.merge(participants, ni_biobd_df, on="participant_id")
-    assert participants.shape == (697, 48)
+    assert participants.shape == (669, 48)
 
     #%% Read Total Imaging volumes
     # Read schizconnect to remove duplicates
@@ -131,7 +132,7 @@ def make_participants(output, dry):
     assert tivo_biobd.shape ==  (746, 5)
 
     participants = pd.merge(participants, tivo_biobd, on="participant_id")
-    assert participants.shape == (697, 52)
+    assert participants.shape == (669, 52)
 
     # Save This one as the participants file
     participants_filename = os.path.join(output, "participants.tsv")

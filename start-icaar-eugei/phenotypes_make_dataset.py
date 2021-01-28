@@ -494,7 +494,7 @@ other = df[~df.study.isin(['BIOBD', 'BSNIP'])]
 df = df[df.study.isin(['BIOBD', 'BSNIP'])]
 df.shape == (2962, 46)
 
-LAURIEANNE_CSV = "/neurospin/psy_sbox/bipolar-biobd/phenotype/2019_laurie_anne/biobd_bsnip_clinical.csv"
+LAURIEANNE_CSV = "/neurospin/psy/biobd/phenotype/2019_laurie_anne/biobd_bsnip_clinical_2021.csv"
 
 laurie = pd.read_csv(LAURIEANNE_CSV, sep=',')
 laurie.shape == (1099, 26)

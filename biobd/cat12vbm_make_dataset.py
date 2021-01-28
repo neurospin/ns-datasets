@@ -39,7 +39,8 @@ assert len(NII_FILENAMES) == 746
 
 #%% OUTPUTS:
 
-OUTPUT_DIR = "/neurospin/psy/all_studies/datasets"
+#OUTPUT_DIR = "/neurospin/psy_sbox/all_studies/derivatives/arrays"
+OUTPUT_DIR = "/neurospin/tmp/psy_sbox/all_studies/derivatives/arrays"
 #OUTPUT_FILENAME = "{dirname}/biobd_cat12vbm_{datatype}_%s.{ext}" % \
 #    str(datetime.date.today()).replace("-","")
 OUTPUT_FILENAME = "{dirname}/biobd_cat12vbm_{datatype}.{ext}"
@@ -63,10 +64,17 @@ def read_data():
 
     participants = pd.read_csv(os.path.join(STUDY_PATH, "participants.tsv"), sep='\t')
     participants.participant_id = participants.participant_id.astype(str)
-
-    # Some QC
-    assert participants.shape[0] == 697
+    assert participants.shape[0] == 669
     assert np.all(participants.study.isin(["BIOBD"]))
+
+    #%% Select participants with QC==1
+    qc = pd.read_csv(os.path.join(STUDY_PATH,
+        'derivatives/cat12-12.6_vbm_qc/qc.tsv'), sep='\t')
+    qc.participant_id = qc.participant_id.astype(str)
+
+    participants = participants[participants.participant_id.isin(qc.participant_id[qc["qc"] == 1])]
+    assert participants.shape[0] == 669
+
 
     #%% Read Images
 
@@ -80,8 +88,8 @@ def read_data():
     imgs_df = imgs_df[select_mask_]
     imgs_df.reset_index(drop=True, inplace=True)
     del select_mask_
-    assert imgs_df.shape[0] == 697
-    assert imgs_arr.shape == (697, 1, 121, 145, 121)
+    assert imgs_df.shape[0] == 669
+    assert imgs_arr.shape == (669, 1, 121, 145, 121)
 
     #%% Align participants with images, eventually repplicates for sessions
 
@@ -92,7 +100,7 @@ def read_data():
     participants = pd.merge(left=imgs_df[["participant_id", "session"]], right=participants, how='inner',
                     on=["participant_id", "session"])
     participants.reset_index(drop=True, inplace=True)
-    assert participants.shape == (697, 52)  # Make sure no particiant is lost
+    assert participants.shape == (669, 52)  # Make sure no particiant is lost
 
     #%% Align ROIs with images
 
@@ -105,28 +113,11 @@ def read_data():
         "Rois does not contains some expected columns"
     rois = pd.merge(left=imgs_df[["participant_id", "session"]], right=rois, how='inner',
                     on=["participant_id", "session"])
-    assert rois.shape == (697, 290)
+    assert rois.shape == (669, 290)
 
-
-    #%% Apply QC
-    # See laurie_anne_qc() bellow
-
-    qc = pd.read_csv(os.path.join(STUDY_PATH,
-        'derivatives/cat12-12.6_vbm_qc/qc.tsv'), sep='\t')
-    qc.participant_id = qc.participant_id.astype(str)
-
-    assert np.all([col in qc.columns for col in ['participant_id', 'session']]), \
-        "QC does not contains some expected columns"
-    qc = pd.merge(left=imgs_df[["participant_id", "session"]], right=qc, how='inner',
-                    on=["participant_id", "session"])
-    assert qc.shape == (697, 6)
-    select_qc = qc['qc_laurie-anne'] == 1
-
-    participants, rois, imgs_arr, imgs_df = \
-        participants[select_qc], rois[select_qc], imgs_arr[select_qc], imgs_df[select_qc]
 
     # Final QC
-    assert participants.shape[0] == rois.shape[0] == imgs_arr.shape[0] == imgs_df.shape[0] == 663
+    assert participants.shape[0] == rois.shape[0] == imgs_arr.shape[0] == imgs_df.shape[0] == 669
     assert np.all(participants.participant_id == rois.participant_id)
     assert np.all(rois.participant_id == imgs_df.participant_id)
 
@@ -159,46 +150,80 @@ def fetch_data(files, dst, base_url, verbose=1):
 
 #%% Read Laurie-Anne QC and save it into derivatives/cat12-12.6_vbm_qc/qc.tsv
 
-def laurie_anne_qc():
+def build_qc_from_laurie_anne_qc():
     """Read Laurie-Anne QC and save it into derivatives/cat12-12.6_vbm_qc/qc.tsv
+    See Laurie-Anne README:
+    phenotype/2019_laurie_anne/readme_constitution_dataset_biobd_bsnip.odt
     """
     participants = pd.read_csv(os.path.join(STUDY_PATH, "participants.tsv"), sep='\t')
     participants.participant_id = participants.participant_id.astype(str)
+    assert participants.shape[0] == 669
 
+    # We should use the cat12_qc_laurie-anne_20190627.csv but for some reason
+    # Laurie-anne used another file see bellow
+    laurie = pd.read_csv(os.path.join(STUDY_PATH,
+        'derivatives/cat12-12.6_vbm_qc-laurie-anne/cat12_qc_laurie-anne_20190627.csv'))
+    laurie.participant_id = [s.replace("sub-", "") for s in laurie.participant_id.astype(str)]
+    laurie.participant_id = laurie.participant_id.astype(str)
+
+    laurie = laurie[laurie.qc_cat12 == 1]
+    #laurie = laurie[laurie.participant_id.isin(participants.participant_id)]
+    assert laurie.shape[0] == 728
+
+    # Note that all participants are OK in Laurie-Anne QC
+    assert participants.participant_id.isin(laurie.participant_id).sum() == participants.shape[0]
+
+    # Check with selected by Laurie:
+    laurie2 = pd.read_csv(os.path.join(STUDY_PATH,
+        'derivatives/cat12-12.6_vbm_qc-laurie-anne/norm_dataset_cat12_bsnip_biobd.tsv'), sep='\t')
+    laurie2.participant_id = laurie2.participant_id.astype(str)
+    assert laurie2.shape == (993, 183)
+    laurie2["is_biobd"] = [not s.startswith('INV') for s in laurie2.participant_id]
+    laurie2 = laurie2[laurie2["is_biobd"]]
+    assert laurie2.shape[0] == 677
+
+    # Defferences are explaind by
+    # - 14 vip_duplicated_in_biobd
+    # - 6 with non BD DX
+    # So participants selected by Laurie-Anne match participants with Laurie ANNE QC
+    diff = pd.DataFrame(dict(participant_id=participants.participant_id.append(laurie.participant_id.append(laurie2.participant_id)).unique(),
+                        participants=0,
+                        cat12_qc_laurie_anne_20190627=0, norm_dataset_cat12_bsnip_biobd=0))
+    diff.loc[diff.participant_id.isin(participants.participant_id), "participants"] = 1
+    diff.loc[diff.participant_id.isin(laurie.participant_id), "cat12_qc_laurie_anne_20190627"] = 1
+    diff.loc[diff.participant_id.isin(laurie2.participant_id), "norm_dataset_cat12_bsnip_biobd"] = 1
+
+    diff["select_cat12_qc_laurie_anne_20190627"] = ((diff.participants == 1) & (diff.cat12_qc_laurie_anne_20190627)).astype(int)
+    vip_duplicated_in_biobd = ['341879365063', '156634941156', '611954003219', '999412570656', '435432648506', '186334059458', '870810930661', '153138320244', '726278928908', '611553851411', '942465208526', '148210353882', '419555247213', '544435731463']
+    diff["vip_duplicated_in_biobd"] = 0
+    diff.vip_duplicated_in_biobd[diff.participant_id.isin(vip_duplicated_in_biobd)] = 1
+
+    diff = pd.merge(diff, participants[["participant_id", "diagnosis", "age", "sex", "site"]],
+                    on="participant_id", how="outer")
+
+    # Keep only differences not duplicated in vip
+    diff = diff[diff.select_cat12_qc_laurie_anne_20190627 != diff.norm_dataset_cat12_bsnip_biobd]
+    diff = diff[diff.vip_duplicated_in_biobd != 1]
+    # 6 subjects are differents non are 'control', 'bipolar disorder'
+    assert diff.shape[0] == 6 and np.all(~diff.diagnosis.isin(['control', 'bipolar disorder']))
+    # diff.to_csv(os.path.join(STUDY_PATH,
+    #        'derivatives/cat12-12.6_vbm_qc-laurie-anne/diff__cat12_qc_laurie-anne_20190627__norm_dataset_cat12_bsnip_biobd.tsv'), index=False, sep='\t')
+    # OK
+
+
+    # Save QC = participants + apply Laurie-QC (Please not that 6 subjects non
+    # control nor bipolar disorder haven't been chached)
     qc = pd.read_csv(os.path.join(STUDY_PATH,
          'derivatives/cat12-12.6_vbm_qc/qc.tsv'), sep= "\t")
+    qc.participant_id = qc.participant_id.astype(str)
+    qc = qc.loc[:, :'corr_mean']
 
-    # # We should use the cat12_qc_laurie-anne_20190627.csv but for some reason
-    # # Laurie-anne used another file see bellow
-    # laurie = pd.read_csv(os.path.join(STUDY_PATH,
-    #     'derivatives/cat12-12.6_vbm_qc-laurie-anne/cat12_qc_laurie-anne_20190627.csv'))
-    # laurie.participant_id = [s.replace("sub-", "") for s in laurie.participant_id.astype(str)]
-    # laurie.participant_id = laurie.participant_id.astype(str)
-    # laurie = laurie[laurie.qc_cat12 == 1]
-    # laurie = laurie[laurie.participant_id.isin(participants.participant_id)]
+    qc["qc"] = 0
+    qc.loc[qc.participant_id.isin(laurie.participant_id), "qc"] = 1
 
-    # qc["qc_laurie-anne2"] = 0
-    # qc.loc[qc.participant_id.isin(laurie.participant_id), "qc_laurie-anne2"] = 1
-
-    laurie = pd.read_csv(os.path.join(STUDY_PATH,
-        'derivatives/cat12-12.6_vbm_qc-laurie-anne/norm_dataset_cat12_bsnip_biobd.tsv'), sep='\t')
-    laurie.participant_id = laurie.participant_id.astype(str)
-    assert laurie.shape == (993, 183)
-    laurie["is_biobd"] = [not s.startswith('INV') for s in laurie.participant_id]
-    laurie = laurie[laurie["is_biobd"]]
-
-    assert laurie.shape[0] == 677
-
-    # 34 subject Removed
-    assert len(set(participants.participant_id) - set(laurie.participant_id)) == 34
-
-    # Apply fast QC and Laurie selection
-    #fast_qc = fast_qc.drop("qc_laurie-anne", axis=1)
-
-    qc["qc_laurie-anne"] = 0
-    qc.loc[qc.participant_id.isin(laurie.participant_id), "qc_laurie-anne"] = 1
-    # Make Laurie-Anne QC the new QC
-    qc["qc"] = qc["qc_laurie-anne"]
+    # Recheck that participants are OK in Laurie-Anne QC
+    assert participants.participant_id.isin(qc.participant_id[qc["qc"] == 1]).sum() == participants.shape[0]
+    assert len(qc.participant_id[qc["qc"] == 1]) == 728
 
     qc.to_csv(os.path.join(STUDY_PATH,
         'derivatives/cat12-12.6_vbm_qc/qc.tsv'), sep='\t', index=False)
@@ -289,9 +314,9 @@ def make_dataset(output, nogs, dry):
     imgs_arr = np.load(vbm_filename)
     mask_img = nibabel.load(os.path.join(output, "mni_cerebrum-mask.nii.gz"))
 
-    assert participants.shape == (663, 52)
-    assert rois.shape == (663, 290)
-    assert imgs_arr.shape == (663, 1, 121, 145, 121)
+    assert participants.shape == (669, 52)
+    assert rois.shape == (669, 290)
+    assert imgs_arr.shape == (669, 1, 121, 145, 121)
 
     print("============================")
     print("= Basic QC: Age prediction =")
