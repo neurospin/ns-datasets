@@ -97,14 +97,6 @@ def make_participants(output, dry):
     ni_biobd_filenames = NII_FILENAMES
     assert len(ni_biobd_filenames) == 746
 
-    # def _get_participants_sesssion(filenames):
-    #     participant_re = re.compile("sub-([^_/]+)")
-    #     session_re = re.compile("ses-([^_/]+)/")
-    #     return pd.DataFrame([[participant_re.findall(filename)[0], session_re.findall(filename)[0]] + [filename]
-    #             for filename in filenames], columns=["participant_id", "session", "mwp1_filename"])
-
-    # ni_biobd_df = _get_participants_sesssion(ni_biobd_filenames)
-
     ni_biobd_df = pd.DataFrame([pd.Series(bids.get_keys(filename))
                                 for filename in ni_biobd_filenames])
 
@@ -113,12 +105,8 @@ def make_participants(output, dry):
     assert participants.shape == (669, 48)
 
     #%% Read Total Imaging volumes
-    # Read schizconnect to remove duplicates
-    # tivo_icaar = pd.read_csv(os.path.join(BASE_PATH_icaar, 'stats', 'cat12_tissues_volumes.tsv'), sep='\t')
-    #tivo_schizconnect = pd.read_csv(os.path.join(STUDY_PATH_schizconnect, 'stats', 'cat12_tissues_volumes.tsv'), sep='\t')
     vol_cols = ["participant_id", 'TIV', 'CSF_Vol', 'GM_Vol', 'WM_Vol']
 
-    # tivo_bsnip = pd.read_csv(os.path.join(BASE_PATH_bsnip, 'stats', 'cat12_tissues_volumes.tsv'), sep='\t')
     tivo_biobd = pd.read_csv(os.path.join(STUDY_PATH,
         'derivatives/cat12-12.6_vbm_roi/cat12-12.6_vbm_roi.tsv'), sep='\t')[vol_cols]
     tivo_biobd.participant_id = tivo_biobd.participant_id.astype(str)

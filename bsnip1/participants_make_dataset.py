@@ -9,8 +9,8 @@ Population description
 
              TIV        age
 sex
-F    1283.825687  40.947635
-M    1458.560863  35.909910
+0.0  1458.560863  35.909910
+1.0  1283.825687  40.947635
                                                             TIV        age
 diagnosis
 control                                             1383.028836  38.643216
@@ -77,8 +77,11 @@ def make_participants(output, dry):
 
     assert participants.shape == (3857, 46)
     # rm subjects with missing age or site
-    participants = participants[participants.sex.notnull() & participants.age.notnull()]
-    assert participants.shape == (2697, 46)
+    participants = participants[participants.sex.notnull() &
+                                participants.age.notnull() &
+                                participants.site.notnull() &
+                                participants.diagnosis.notnull()]
+    assert participants.shape == (2663, 46)
 
     participants = participants[participants.study == 'BSNIP']
     assert participants.shape == (1094, 46)
@@ -96,12 +99,8 @@ def make_participants(output, dry):
     assert participants.shape == (1042, 48)
 
     #%% Read Total Imaging volumes
-    # Read schizconnect to remove duplicates
-    # tivo_icaar = pd.read_csv(os.path.join(BASE_PATH_icaar, 'stats', 'cat12_tissues_volumes.tsv'), sep='\t')
-    #tivo_schizconnect = pd.read_csv(os.path.join(STUDY_PATH_schizconnect, 'stats', 'cat12_tissues_volumes.tsv'), sep='\t')
     vol_cols = ["participant_id", 'TIV', 'CSF_Vol', 'GM_Vol', 'WM_Vol']
 
-    # tivo_bsnip = pd.read_csv(os.path.join(BASE_PATH_bsnip, 'stats', 'cat12_tissues_volumes.tsv'), sep='\t')
     tivo_bsnip = pd.read_csv(os.path.join(STUDY_PATH,
         'derivatives/cat12-12.6_vbm_roi/cat12-12.6_vbm_roi.tsv'), sep='\t')[vol_cols]
     tivo_bsnip.participant_id = tivo_bsnip.participant_id.astype(str)
