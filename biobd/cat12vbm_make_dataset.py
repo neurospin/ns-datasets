@@ -280,8 +280,8 @@ def make_dataset(output, nogs, dry):
     print("= Fetch mask =")
     print("==============")
 
-    base_url='ftp://ftp.cea.fr/pub/unati/people/educhesnay/data/brain_anatomy_ixi/data'
-    fetch_data(files=["mni_cerebrum-mask.nii.gz"], dst=output, base_url=base_url, verbose=1)
+    base_url='ftp://ftp.cea.fr/pub/unati/ni_ressources/masks/'
+    fetch_data(files=["mni_cerebrum-mask.nii.gz", "mni_brain-mask.nii.gz"], dst=output, base_url=base_url, verbose=1)
     mask_img = nibabel.load(os.path.join(output, "mni_cerebrum-mask.nii.gz"))
     assert np.all(mask_img.affine == target_img.affine), "Data shape do not match cat12VBM"
 
