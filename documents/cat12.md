@@ -1,6 +1,6 @@
-[cat12](http://www.neuro.uni-jena.de/cat12-html/)
+[CAT12](http://www.neuro.uni-jena.de/cat12-html/)
 
-# QC
+# Quality Control (QC)
 
 Outputs: `cat12-<version>_vbm_qc/`
 
@@ -23,6 +23,11 @@ Outputs: `cat12-<version>_vbm_qc/`
 - IQR (image quality rating) The resulting ratings were combined as weighted average image quality rating IQR (Dahnke et al. 2016).
 
 The obtained quality ratings range from 0.5 (100 rating points (rps)) to 10.5 (0 rps) with values around 1 and 2 describing (very) good image quality (grad A and B) and values around 5 (grad E) and higher (grad F, less than 50 rps) indicating problematic images
+
+Default strategy:
+
+1. Discard (`qc` column of `qc.tsv`) participants with <QC metrics to be defined> see larger than 4.5
+2. Inspect image (`nii_plottings.pdf`) by increasing `corr_mean` and manually discard participants.
 
 
 [In Finkelmeyer et al. 2018](https://www.sciencedirect.com/science/article/pii/S221315821730236X):
