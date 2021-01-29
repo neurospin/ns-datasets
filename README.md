@@ -15,6 +15,7 @@ study/
 │   ├── images
 │   └── phenotypes
 ├── rawdata (niftti image in bids format)
+├── phenotypes cured "clean" phenotypes
 └── derivatives (processed data)
     ├── <soft>-<vesion>_<output> ex: cat12-12.6_vbm
     └── <soft>-<vesion>_<output>_qc ex: cat12-12.6_vbm_qc
@@ -41,7 +42,7 @@ niftti image in bids format
   
 # Phenotypes
 
-Should contained *cured* phenotypes, `.tsv` files must contains a `participant_id` column.
+Should contained **cured** phenotypes, `.tsv` files must contains a `participant_id` column.
 
 # Scripts
 
