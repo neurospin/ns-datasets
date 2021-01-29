@@ -42,7 +42,7 @@ niftti image in bids format
   
 # Phenotypes
 
-Should contained **cured** phenotypes, `.tsv` files must contains a `participant_id` column.
+Should contained **cured** phenotypes, `.tsv` files must contains a `participant_id` column. The "dirty" phenotypes must be saved in `sourcedata/phenotypes`.
 
 # Scripts
 
