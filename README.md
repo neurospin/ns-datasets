@@ -2,8 +2,19 @@
 
 Processing scripts of NeusoSpin dataset
 
-[Summary of psy datasets in NeuroSpin](https://bioproj.cea.fr/nextcloud/f/118432)
+The psy dataset is divided in two directories :
+- **/neurospin/psy** : Safe shared data.(finished and complete work)
+- **/neurospin/psy_sbox** : Mirror of the psy directory. (pending work)
+Note : Due to insufficient memory space, the synchronisation between these two directories is stopped for the time being.
+The organisation of these directories is in **bids format**. Please for more details refer to the links below:
+https://bioproj.cea.fr/nextcloud/f/118432
+https://bids-specification.readthedocs.io/en/stable/
 
+monitoring :
+Please refer to this table for more information about a **dataset**:
+http://mart.intra.cea.fr/neurospin_datasets/
+Please refer to this table for more information about the **preprocessings** done in a dataset:
+https://bioproj.cea.fr/nextcloud/f/117205
 
 # Images organization
 
@@ -35,11 +46,11 @@ When you receive new data:
 
 ## Rawdata: directory `rawdata`
 
-**Unprocessed Niftti images** organized in **[BIDS](https://bids-specification.readthedocs.io/en/stable/)** format see detailed description [JULIE ADD A LINK HERE TO NEXTCLOUD FILE](https://).
+**Unprocessed Niftti images** organized in **[BIDS](https://bids-specification.readthedocs.io/en/stable/)** format see detailed description **https://bioproj.cea.fr/nextcloud/f/118432**
 
 ## Processed images: directory `derivatives`
 
-**Processed Niftti images** organized in **[BIDS](https://bids-specification.readthedocs.io/en/stable/)** format see detailed description [JULIE ADD A LINK HERE TO NEXTCLOUD FILE](https://).
+**Processed Niftti images** organized in **[BIDS](https://bids-specification.readthedocs.io/en/stable/)** format see detailed description **https://bioproj.cea.fr/nextcloud/f/118432**
 
 General organization
 
@@ -48,7 +59,7 @@ General organization
  
 # Phenotypes
 
-Contained **cured** phenotypes, `.tsv` files must contains a `participant_id` column. The "dirty" phenotypes must be saved in `sourcedata/phenotypes`.
+Contained **cured** phenotypes, `.tsv` files must contains a `participant_id` column. The "dirty" phenotypes must be saved in `sourcedata/phenotypes`. See detailed procedure **https://bioproj.cea.fr/nextcloud/f/118432**
 
 # Scripts
 
