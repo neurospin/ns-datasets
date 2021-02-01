@@ -42,8 +42,8 @@ from nitk import bids
 
 #%% INPUTS:
 
-STUDY_PATH = '/neurospin/psy/bsnip1'
-CLINIC_CSV = '/neurospin/psy/all_studies/phenotype/phenotypes_SCHIZCONNECT_VIP_PRAGUE_BSNIP_BIOBD_ICAAR_START_20201223.tsv'
+STUDY_PATH = '/neurospin/psy_sbox/bsnip1'
+CLINIC_CSV = '/neurospin/psy_sbox/all_studies/phenotype/phenotypes_SCHIZCONNECT_VIP_PRAGUE_BSNIP_BIOBD_ICAAR_START_20201223.tsv'
 NII_FILENAMES = glob.glob(
     os.path.join(STUDY_PATH, "derivatives/cat12-12.6_vbm/sub-*/ses-V1/anat/mri/mwp1*.nii"))
 assert len(NII_FILENAMES) == 1042

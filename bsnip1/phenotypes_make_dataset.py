@@ -1,1 +1,1 @@
-../../start-icaar-eugei/preproc/phenotypes_make_dataset.py
+../start-icaar-eugei/phenotypes_make_dataset.py

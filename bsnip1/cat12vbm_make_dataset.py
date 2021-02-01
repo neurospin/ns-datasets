@@ -32,17 +32,18 @@ from sklearn.model_selection import KFold
 
 #%% INPUTS:
 
-STUDY_PATH = '/neurospin/psy/bsnip1'
+STUDY_PATH = '/neurospin/psy_sbox/bsnip1'
 NII_FILENAMES = glob.glob(
     os.path.join(STUDY_PATH, "derivatives/cat12-12.6_vbm/sub-*/ses-V1/anat/mri/mwp1*.nii"))
 assert len(NII_FILENAMES) == 1042
 
 #%% OUTPUTS:
 
-OUTPUT_DIR = "/neurospin/psy/all_studies/datasets"
+#OUTPUT_DIR = "/neurospin/psy_sbox/all_studies/derivatives/arrays"
+OUTPUT_DIR = "/neurospin/tmp/psy_sbox/all_studies/derivatives/arrays"
 #OUTPUT_FILENAME = "{dirname}/biobd_cat12vbm_{datatype}_%s.{ext}" % \
 #    str(datetime.date.today()).replace("-","")
-OUTPUT_FILENAME = "{dirname}/biobd_cat12vbm_{datatype}.{ext}"
+OUTPUT_FILENAME = "{dirname}/bsnip1_cat12vbm_{datatype}.{ext}"
 
 
 def read_data():
@@ -63,10 +64,18 @@ def read_data():
 
     participants = pd.read_csv(os.path.join(STUDY_PATH, "participants.tsv"), sep='\t')
     participants.participant_id = participants.participant_id.astype(str)
-
-    # Some QC
     assert participants.shape[0] == 1036
     assert np.all(participants.study.isin(["BSNIP"]))
+
+    #%% Select participants with QC==1
+
+    qc = pd.read_csv(os.path.join(STUDY_PATH,
+        'derivatives/cat12-12.6_vbm_qc/qc.tsv'), sep='\t')
+    qc.participant_id = qc.participant_id.astype(str)
+
+    participants = participants[participants.participant_id.isin(qc.participant_id[qc["qc"] == 1])]
+    assert participants.shape[0] == 1032
+
 
     #%% Read Images
 
@@ -80,8 +89,8 @@ def read_data():
     imgs_df = imgs_df[select_mask_]
     imgs_df.reset_index(drop=True, inplace=True)
     del select_mask_
-    assert imgs_df.shape[0] == 1036
-    assert imgs_arr.shape == (1036, 1, 121, 145, 121)
+    assert imgs_df.shape[0] == 1032
+    assert imgs_arr.shape == (1032, 1, 121, 145, 121)
 
     #%% Align participants with images, eventually repplicates for sessions
 
@@ -92,7 +101,7 @@ def read_data():
     participants = pd.merge(left=imgs_df[["participant_id", "session"]], right=participants, how='inner',
                     on=["participant_id", "session"])
     participants.reset_index(drop=True, inplace=True)
-    assert participants.shape == (1036, 52)  # Make sure no particiant is lost
+    assert participants.shape == (1032, 52)  # Make sure no particiant is lost
 
     #%% Align ROIs with images
 
@@ -105,28 +114,11 @@ def read_data():
         "Rois does not contains some expected columns"
     rois = pd.merge(left=imgs_df[["participant_id", "session"]], right=rois, how='inner',
                     on=["participant_id", "session"])
-    assert rois.shape == (1036, 290)
+    assert rois.shape == (1032, 290)
 
-
-    #%% Apply QC
-    # See laurie_anne_qc() bellow
-
-    qc = pd.read_csv(os.path.join(STUDY_PATH,
-        'derivatives/cat12-12.6_vbm_qc/qc.tsv'), sep='\t')
-    qc.participant_id = qc.participant_id.astype(str)
-
-    assert np.all([col in qc.columns for col in ['participant_id', 'session']]), \
-        "QC does not contains some expected columns"
-    qc = pd.merge(left=imgs_df[["participant_id", "session"]], right=qc, how='inner',
-                    on=["participant_id", "session"])
-    assert qc.shape == (697, 6)
-    select_qc = qc['qc_laurie-anne'] == 1
-
-    participants, rois, imgs_arr, imgs_df = \
-        participants[select_qc], rois[select_qc], imgs_arr[select_qc], imgs_df[select_qc]
 
     # Final QC
-    assert participants.shape[0] == rois.shape[0] == imgs_arr.shape[0] == imgs_df.shape[0] == 663
+    assert participants.shape[0] == rois.shape[0] == imgs_arr.shape[0] == imgs_df.shape[0] == 1032
     assert np.all(participants.participant_id == rois.participant_id)
     assert np.all(rois.participant_id == imgs_df.participant_id)
 
@@ -159,51 +151,34 @@ def fetch_data(files, dst, base_url, verbose=1):
 
 #%% Read Laurie-Anne QC and save it into derivatives/cat12-12.6_vbm_qc/qc.tsv
 
-#%% Read Laurie-Anne QC and save it into derivatives/cat12-12.6_vbm_qc/qc.tsv
-
-def laurie_anne_qc():
-    """Read Laurie-Anne QC and save it into derivatives/cat12-12.6_vbm_qc/qc.tsv
+def build_qc():
+    """
     """
     participants = pd.read_csv(os.path.join(STUDY_PATH, "participants.tsv"), sep='\t')
     participants.participant_id = participants.participant_id.astype(str)
+    assert participants.shape[0] == 1036
 
     qc = pd.read_csv(os.path.join(STUDY_PATH,
          'derivatives/cat12-12.6_vbm_qc/qc.tsv'), sep= "\t")
+    qc.participant_id = qc.participant_id.astype(str)
+    qc.corr_mean[ qc.corr_mean.abs() > 1] = qc.corr_mean.median()
+    qc["qc"] = 1
+    qc.loc[(qc.NCR > 4.5) | (qc.IQR > 4.5), "qc"] = 0
 
-    # # We should use the cat12_qc_laurie-anne_20190627.csv but for some reason
-    # # Laurie-anne used another file see bellow
-    # laurie = pd.read_csv(os.path.join(STUDY_PATH,
-    #     'derivatives/cat12-12.6_vbm_qc-laurie-anne/cat12_qc_laurie-anne_20190627.csv'))
-    # laurie.participant_id = [s.replace("sub-", "") for s in laurie.participant_id.astype(str)]
-    # laurie.participant_id = laurie.participant_id.astype(str)
-    # laurie = laurie[laurie.qc_cat12 == 1]
-    # laurie = laurie[laurie.participant_id.isin(participants.participant_id)]
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    plt.plot(qc.corr_mean, qc.IQR, "o")
+    df = qc[['corr_mean', 'NCR', 'ICR', 'IQR']]
+    sns.lmplot(x='corr_mean', y='NCR', data=df)
+    sns.lmplot(x='corr_mean', y='IQR', data=df)
+    sns.lmplot(x='corr_mean', y='NCR', data=df)
 
-    # qc["qc_laurie-anne2"] = 0
-    # qc.loc[qc.participant_id.isin(laurie.participant_id), "qc_laurie-anne2"] = 1
+    csv_filename = os.path.join(STUDY_PATH,
+        'derivatives/cat12-12.6_vbm_qc/qc.tsv')
+    print("Save to %s" % csv_filename)
+    print("Perform manual look at the data, manually discard (set qc=0) participants in %s" % csv_filename)
+    qc.to_csv(csv_filename, sep='\t', index=False)
 
-    laurie = pd.read_csv(os.path.join(STUDY_PATH,
-        'derivatives/cat12-12.6_vbm_qc-laurie-anne/norm_dataset_cat12_bsnip_biobd.tsv'), sep='\t')
-    laurie.participant_id = laurie.participant_id.astype(str)
-    assert laurie.shape == (993, 183)
-    laurie["is_biobd"] = [not s.startswith('INV') for s in laurie.participant_id]
-    laurie = laurie[~laurie["is_biobd"]]
-
-    assert laurie.shape[0] == 316
-
-    # 34 subject Removed
-    assert len(set(participants.participant_id) - set(laurie.participant_id)) == 34
-
-    # Apply fast QC and Laurie selection
-    #fast_qc = fast_qc.drop("qc_laurie-anne", axis=1)
-
-    qc["qc_laurie-anne"] = 0
-    qc.loc[qc.participant_id.isin(laurie.participant_id), "qc_laurie-anne"] = 1
-    # Make Laurie-Anne QC the new QC
-    qc["qc"] = qc["qc_laurie-anne"]
-
-    qc.to_csv(os.path.join(STUDY_PATH,
-        'derivatives/cat12-12.6_vbm_qc/qc.tsv'), sep='\t', index=False)
 
 #%% make_dataset Main function
 
@@ -256,9 +231,9 @@ def make_dataset(output, nogs, dry):
     print("= Fetch mask =")
     print("==============")
 
-    base_url='ftp://ftp.cea.fr/pub/unati/people/educhesnay/data/brain_anatomy_ixi/data'
-    fetch_data(files=["mni_cerebrum-mask.nii.gz"], dst=output, base_url=base_url, verbose=1)
-    mask_img = nibabel.load(os.path.join(output, "mni_cerebrum-mask.nii.gz"))
+    base_url='ftp://ftp.cea.fr/pub/unati/ni_ressources/masks/'
+    fetch_data(files=["mni_cerebrum-gm-mask_1.5mm.nii.gz", "mni_brain-gm-mask_1.5mm.nii.gz"], dst=output, base_url=base_url, verbose=1)
+    mask_img = nibabel.load(os.path.join(output, "mni_cerebrum-gm-mask_1.5mm.nii.gz"))
     assert np.all(mask_img.affine == target_img.affine), "Data shape do not match cat12VBM"
 
     participants_filename = OUTPUT_FILENAME.format(dirname=output, datatype="participants", ext="csv")
@@ -288,17 +263,17 @@ def make_dataset(output, nogs, dry):
     participants = pd.read_csv(participants_filename)
     rois = pd.read_csv(rois_filename)
     imgs_arr = np.load(vbm_filename)
-    mask_img = nibabel.load(os.path.join(output, "mni_cerebrum-mask.nii.gz"))
+    mask_img = nibabel.load(os.path.join(output, "mni_cerebrum-gm-mask_1.5mm.nii.gz"))
 
-    assert participants.shape == (663, 52)
-    assert rois.shape == (663, 290)
-    assert imgs_arr.shape == (663, 1, 121, 145, 121)
+    assert participants.shape == (1032, 52)
+    assert rois.shape == (1032, 290)
+    assert imgs_arr.shape == (1032, 1, 121, 145, 121)
 
     print("============================")
     print("= Basic QC: Age prediction =")
     print("Expected values:")
-    print("rois:	CV R2:0.6132, MAE:6.0520, RMSE:7.8319")
-    print("vbm:	CV R2:0.7305, MAE:5.1636, RMSE:6.5485")
+    print("rois:	CV R2:0.6702, MAE:6.0837, RMSE:8.0387")
+    print("vbm:	CV R2:0.7848, MAE:5.2339, RMSE:6.5138")
     print("============================")
 
     mask_arr = mask_img.get_fdata() != 0
