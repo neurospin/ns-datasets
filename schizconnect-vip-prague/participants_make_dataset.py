@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Mon Apr 15 15:11:34 2019
+Created on Tue Feb  2 09:42:31 CET 2021
 
 @author: edouard.duchesnay@cea.fr
 
@@ -38,7 +38,7 @@ from nitk import bids
 STUDY_PATH = '/neurospin/psy_sbox/schizconnect-vip-prague'
 CLINIC_CSV = '/neurospin/psy_sbox/all_studies/phenotype/phenotypes_SCHIZCONNECT_VIP_PRAGUE_BSNIP_BIOBD_ICAAR_START_20201223.tsv'
 NII_FILENAMES = glob.glob("/neurospin/psy/schizconnect-vip-prague/derivatives/cat12-12.6_vbm/sub-*/mri/mwp1*.nii")
-
+N_SUBJECTS = 738
 assert len(NII_FILENAMES) == 738
 
 #%% OUTPUTS:
@@ -82,14 +82,14 @@ def make_participants(output, dry):
 
     #%% Read mwp1
     ni_schizconnect_filenames = NII_FILENAMES
-    assert len(ni_schizconnect_filenames) == 738
+    assert len(ni_schizconnect_filenames) == N_SUBJECTS
 
     ni_schizconnect_df = pd.DataFrame([pd.Series(bids.get_keys(filename))
                                 for filename in ni_schizconnect_filenames])
 
     # Keep only participants with processed T1
     participants = pd.merge(participants, ni_schizconnect_df, on="participant_id")
-    assert participants.shape == (738, 48)
+    assert participants.shape == (N_SUBJECTS, 48)
 
     #%% Read Total Imaging volumes
     vol_cols = ["participant_id", 'TIV', 'CSF_Vol', 'GM_Vol', 'WM_Vol']
@@ -101,13 +101,10 @@ def make_participants(output, dry):
     # assert tivo_icaar.shape == (171, 6)
     # assert len(ni_icaar_filenames) == 171
 
-    # assert tivo_schizconnect.shape == (738, 6)
-    # assert len(ni_schizconnect_filenames) == 738
-
-    assert tivo_schizconnect.shape ==  (738, 5)
+    assert tivo_schizconnect.shape ==  (N_SUBJECTS, 5)
 
     participants = pd.merge(participants, tivo_schizconnect, on="participant_id")
-    assert participants.shape == (738, 52)
+    assert participants.shape == (N_SUBJECTS, 52)
 
     # Save This one as the participants file
     participants_filename = os.path.join(output, "participants.tsv")
