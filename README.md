@@ -2,20 +2,6 @@
 
 Processing scripts of NeusoSpin dataset
 
-The psy dataset is divided in two directories :
-- **/neurospin/psy** : Safe shared data.(finished and complete work)
-- **/neurospin/psy_sbox** : Mirror of the psy directory. (pending work)
-Note : Due to insufficient memory space, the synchronisation between these two directories is stopped for the time being.
-The organisation of these directories is in **bids format**. Please for more details refer to the links below:
-https://bioproj.cea.fr/nextcloud/f/118432
-https://bids-specification.readthedocs.io/en/stable/
-
-monitoring :
-Please refer to this table for more information about a **dataset**:
-http://mart.intra.cea.fr/neurospin_datasets/
-Please refer to this table for more information about the **preprocessings** done in a dataset:
-https://bioproj.cea.fr/nextcloud/f/117205
-
 # Images organization
 
 ```
@@ -71,3 +57,40 @@ Contained **cured** phenotypes, `.tsv` files must contains a `participant_id` co
 ├── <soft>_<02_second_processing>.py: do some pre-processing
 ├── <soft>_make_dataset.py (ex: cat12vbm_make_dataset.py): build `array` dataset
 ```
+
+# Psy datasets
+
+The psy dataset is divided in two directories :
+- **/neurospin/psy** : Safe shared data.(finished and complete work)
+- **/neurospin/psy_sbox** : Mirror of the psy directory. (pending work)
+Note : Due to insufficient memory space, the synchronisation between these two directories is stopped for the time being.
+The organisation of these directories is in **bids format**. Please for more details refer to the links below:
+https://bioproj.cea.fr/nextcloud/f/118432
+https://bids-specification.readthedocs.io/en/stable/
+
+monitoring :
+Please refer to this table for more information about a **dataset**:
+http://mart.intra.cea.fr/neurospin_datasets/
+Please refer to this table for more information about the **preprocessings** done in a dataset:
+https://bioproj.cea.fr/nextcloud/f/117205
+
+## Input array datasets
+
+```
+/neurospin/tmp/psy_sbox/all_studies/derivatives/arrays/
+├── biobd_cat12vbm_mwp1-gs.npy
+├── biobd_cat12vbm_participants.csv
+├── biobd_cat12vbm_rois-gs.csv
+├── bsnip1_cat12vbm_mwp1-gs.npy
+├── bsnip1_cat12vbm_participants.csv
+├── bsnip1_cat12vbm_rois-gs.csv
+├── ...
+├── mni_brain-gm-mask_1.5mm.nii.gz
+└── mni_cerebrum-gm-mask_1.5mm.nii.gz
+```
+
+## Output data
+
+- `/neurospin/tmp/psy_sbox/analysis/year_study-name` : Make your experiment here: those are preliminary data that may change. The direcory **`/neurospin/tmp`, has  no backup**. This save disk space. You can use **`/neurospin/tmp/<user>`**.
+
+- `/neurospin/psy_sbox/analysis/year_study-name` : When you are happy sync your results here. Make your experiment here: those are preliminary data that may change. The direcory **has backup**.
