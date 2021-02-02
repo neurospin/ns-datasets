@@ -45,14 +45,18 @@ General organization
  
 # Phenotypes
 
-Contained **cured** phenotypes, `.tsv` files must contains a `participant_id` column. The "dirty" phenotypes must be saved in `sourcedata/phenotypes`. See detailed procedure **https://bioproj.cea.fr/nextcloud/f/118432**
+1. **Unorganized "dirty" phenotypes** goes in **`sourcedata/phenotypes/year_some_description`**.
+2. **Cured** phenotypes are saved in dicrectory **`phenotypes/year_some_description*`*.
+   Cured phenotypes `.tsv` files must contains a `participant_id` column.
+Ideally, curation should be made by scripts (ex: `phenotypes_clean_year_some_description.py`) saved in this git repository.
 
 # Scripts
 
 ```
 <study>/
 ├── participants_make_dataset.py: build the participants.tsv file
-├── source_to_bids_2021_t1mri_from_london_iop.py: re-organize file from source data to rawdata 
+├── source_to_bids_2021_t1mri_from_london_iop.py: re-organize file from source data to rawdata
+├── phenotypes_clean_year_some_description.py: re-organize file from source data to rawdata
 ├── <soft>_<01_first_processing>.py: do some pre-processing
 ├── <soft>_<02_second_processing>.py: do some pre-processing
 ├── <soft>_make_dataset.py (ex: cat12vbm_make_dataset.py): build `array` dataset
@@ -60,21 +64,25 @@ Contained **cured** phenotypes, `.tsv` files must contains a `participant_id` co
 
 # Psy datasets
 
-The psy dataset is divided in two directories :
-- **/neurospin/psy** : Safe shared data.(finished and complete work)
-- **/neurospin/psy_sbox** : Mirror of the psy directory. (pending work)
-Note : Due to insufficient memory space, the synchronisation between these two directories is stopped for the time being.
-The organisation of these directories is in **bids format**. Please for more details refer to the links below:
-https://bioproj.cea.fr/nextcloud/f/118432
-https://bids-specification.readthedocs.io/en/stable/
+The psy dataset are stored into two directories :
+- **/neurospin/psy** : Safe shared data, finished and completed work. Ask read Read acces.
+- **/neurospin/psy_sbox** : Mirror (sandbox) of the psy directory. Ask read Read/write acces.
 
-monitoring :
+Note : Due to insufficient memory space, the synchronisation between these two directories is stopped for the time being.
+
+The organisation of these directories is in **[BIDS](https://bids-specification.readthedocs.io/en/stable/)**. Please for more details refer to the links below:
+https://bioproj.cea.fr/nextcloud/f/118432 , file `data_procedures.docx`.
+
+
+## Monitoring :
+
 Please refer to this table for more information about a **dataset**:
-http://mart.intra.cea.fr/neurospin_datasets/
-Please refer to this table for more information about the **preprocessings** done in a dataset:
-https://bioproj.cea.fr/nextcloud/f/117205
+1. https://bioproj.cea.fr/nextcloud/f/117205 file `neurospin_repository_monitor.xlsx`: global overview of the datasets (size, modality, pre-processing, etc.).
+2. http://mart.intra.cea.fr/neurospin_datasets/: Who is working on what.
 
 ## Input array datasets
+
+Ready-to-use array datasets. 
 
 ```
 /neurospin/tmp/psy_sbox/all_studies/derivatives/arrays/
