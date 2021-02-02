@@ -43,12 +43,12 @@ General organization
 - Data: `<soft>-<vesion>_<output>` ex: `cat12-12.6_vbm`
 - Quality check `<soft>-<vesion>_<output>_qc` ex: `cat12-12.6_vbm_qc`. This directory MUST contain a file `qc.tsv` with at least two column `participant_id` and  `qc` in `[0, 1]`.
  
-# Phenotypes
+# Phenotypes: directories `sourcedata/phenotypes` and `phenotypes`
 
-1. **Unorganized "dirty" phenotypes** goes in **`sourcedata/phenotypes/year_some_description`**.
-2. **Cured** phenotypes are saved in dicrectory **`phenotypes/year_some_description*`*.
+1. **Unorganized "dirty" phenotypes** go in `sourcedata/phenotypes/year_some_description`.
+2. **Cured** phenotypes are saved in dicrectory `phenotypes/year_some_description*`.
    Cured phenotypes `.tsv` files must contains a `participant_id` column.
-Ideally, curation should be made by scripts (ex: `phenotypes_clean_year_some_description.py`) saved in this git repository.
+  Ideally, curation should be made by scripts (ex: `phenotypes_clean_year_some_description.py`) saved in this git repository.
 
 # Scripts
 
