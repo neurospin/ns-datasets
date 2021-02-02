@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Dec 22 11:07:29 2020
+Created on Tue Feb  2 09:42:31 CET 2021
 
 @author: edouard.duchesnay@cea.fr
 """
@@ -32,10 +32,10 @@ from sklearn.model_selection import KFold
 
 #%% INPUTS:
 
-STUDY_PATH = '/neurospin/psy_sbox/bsnip1'
-NII_FILENAMES = glob.glob(
-    os.path.join(STUDY_PATH, "derivatives/cat12-12.6_vbm/sub-*/ses-V1/anat/mri/mwp1*.nii"))
-assert len(NII_FILENAMES) == 1042
+STUDY_PATH = '/neurospin/psy_sbox/schizconnect-vip-prague'
+NII_FILENAMES = glob.glob("/neurospin/psy/schizconnect-vip-prague/derivatives/cat12-12.6_vbm/sub-*/mri/mwp1*.nii")
+
+assert len(NII_FILENAMES) == 738
 
 #%% OUTPUTS:
 
@@ -64,8 +64,9 @@ def read_data():
 
     participants = pd.read_csv(os.path.join(STUDY_PATH, "participants.tsv"), sep='\t')
     participants.participant_id = participants.participant_id.astype(str)
-    assert participants.shape[0] == 1036
-    assert np.all(participants.study.isin(["BSNIP"]))
+    assert participants.shape[0] == 738
+    assert np.all(participants.study.isin(['SCHIZCONNECT-VIP', 'PRAGUE']))
+    participants["session"] = "V1" # No session, set to "V1
 
     #%% Select participants with QC==1
 
@@ -74,13 +75,14 @@ def read_data():
     qc.participant_id = qc.participant_id.astype(str)
 
     participants = participants[participants.participant_id.isin(qc.participant_id[qc["qc"] == 1])]
-    assert participants.shape[0] == 1032
+    assert participants.shape[0] == 738
 
 
     #%% Read Images
 
-    assert len(NII_FILENAMES) == 1042
+    assert len(NII_FILENAMES) == 738
     imgs_arr, imgs_df, target_img = img_to_array(NII_FILENAMES)
+    imgs_df["session"] = "V1" # No session, set to "V1
 
     #%% Select images that are in participants
 
@@ -89,36 +91,37 @@ def read_data():
     imgs_df = imgs_df[select_mask_]
     imgs_df.reset_index(drop=True, inplace=True)
     del select_mask_
-    assert imgs_df.shape[0] == 1032
-    assert imgs_arr.shape == (1032, 1, 121, 145, 121)
+    assert imgs_df.shape[0] == 738
+    assert imgs_arr.shape == (738, 1, 121, 145, 121)
 
     #%% Align participants with images, eventually repplicates for sessions
 
     # Intersect participants with images, align with images
-    assert np.all([col in participants.columns for col in ['participant_id', 'session']]), \
+    # No session here
+    assert np.all([col in participants.columns for col in ['participant_id', "session"]]), \
         "participants does not contains some expected columns"
 
     participants = pd.merge(left=imgs_df[["participant_id", "session"]], right=participants, how='inner',
                     on=["participant_id", "session"])
     participants.reset_index(drop=True, inplace=True)
-    assert participants.shape == (1032, 52)  # Make sure no particiant is lost
+    assert participants.shape == (738, 52)  # Make sure no particiant is lost
 
     #%% Align ROIs with images
 
     rois = pd.read_csv(os.path.join(STUDY_PATH,
         'derivatives/cat12-12.6_vbm_roi/cat12-12.6_vbm_roi.tsv'), sep='\t')
     rois.participant_id = rois.participant_id.astype(str)
-    assert rois.shape ==  (1036, 290)
+    assert rois.shape ==  (738, 291)
 
     assert np.all([col in rois.columns for col in ['participant_id', 'session']]), \
         "Rois does not contains some expected columns"
     rois = pd.merge(left=imgs_df[["participant_id", "session"]], right=rois, how='inner',
                     on=["participant_id", "session"])
-    assert rois.shape == (1032, 290)
+    assert rois.shape == (738, 291)
 
 
     # Final QC
-    assert participants.shape[0] == rois.shape[0] == imgs_arr.shape[0] == imgs_df.shape[0] == 1032
+    assert participants.shape[0] == rois.shape[0] == imgs_arr.shape[0] == imgs_df.shape[0] == 738
     assert np.all(participants.participant_id == rois.participant_id)
     assert np.all(rois.participant_id == imgs_df.participant_id)
 
@@ -151,12 +154,12 @@ def fetch_data(files, dst, base_url, verbose=1):
 
 #%% Read Laurie-Anne QC and save it into derivatives/cat12-12.6_vbm_qc/qc.tsv
 
-def build_qc():
+def _unused_build_qc_():
     """
     """
     participants = pd.read_csv(os.path.join(STUDY_PATH, "participants.tsv"), sep='\t')
     participants.participant_id = participants.participant_id.astype(str)
-    assert participants.shape[0] == 1036
+    assert participants.shape[0] == 738
 
     qc = pd.read_csv(os.path.join(STUDY_PATH,
          'derivatives/cat12-12.6_vbm_qc/qc.tsv'), sep= "\t")
@@ -265,15 +268,15 @@ def make_dataset(output, nogs, dry):
     imgs_arr = np.load(vbm_filename)
     mask_img = nibabel.load(os.path.join(output, "mni_cerebrum-gm-mask_1.5mm.nii.gz"))
 
-    assert participants.shape == (1032, 52)
-    assert rois.shape == (1032, 290)
-    assert imgs_arr.shape == (1032, 1, 121, 145, 121)
+    assert participants.shape == (738, 52)
+    assert rois.shape == (738, 291)
+    assert imgs_arr.shape == (738, 1, 121, 145, 121)
 
     print("============================")
     print("= Basic QC: Age prediction =")
     print("Expected values:")
-    print("rois:	CV R2:0.6702, MAE:6.0837, RMSE:8.0387")
-    print("vbm:	CV R2:0.7848, MAE:5.2339, RMSE:6.5138")
+    print("rois:	CV R2:0.6049, MAE:5.7385, RMSE:7.3214")
+    print("vbm:	CV R2:0.6959, MAE:5.0062, RMSE:6.4248")
     print("============================")
 
     mask_arr = mask_img.get_fdata() != 0

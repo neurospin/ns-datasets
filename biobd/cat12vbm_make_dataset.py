@@ -281,8 +281,8 @@ def make_dataset(output, nogs, dry):
     print("==============")
 
     base_url='ftp://ftp.cea.fr/pub/unati/ni_ressources/masks/'
-    fetch_data(files=["mni_cerebrum-mask.nii.gz", "mni_brain-mask.nii.gz"], dst=output, base_url=base_url, verbose=1)
-    mask_img = nibabel.load(os.path.join(output, "mni_cerebrum-mask.nii.gz"))
+    fetch_data(files=["mni_cerebrum-gm-mask_1.5mm.nii.gz", "mni_brain-gm-mask_1.5mm.nii.gz"], dst=output, base_url=base_url, verbose=1)
+    mask_img = nibabel.load(os.path.join(output, "mni_cerebrum-gm-mask_1.5mm.nii.gz"))
     assert np.all(mask_img.affine == target_img.affine), "Data shape do not match cat12VBM"
 
     participants_filename = OUTPUT_FILENAME.format(dirname=output, datatype="participants", ext="csv")
@@ -312,7 +312,7 @@ def make_dataset(output, nogs, dry):
     participants = pd.read_csv(participants_filename)
     rois = pd.read_csv(rois_filename)
     imgs_arr = np.load(vbm_filename)
-    mask_img = nibabel.load(os.path.join(output, "mni_cerebrum-mask.nii.gz"))
+    mask_img = nibabel.load(os.path.join(output, "mni_cerebrum-gm-mask_1.5mm.nii.gz"))
 
     assert participants.shape == (669, 52)
     assert rois.shape == (669, 290)

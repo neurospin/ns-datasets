@@ -1,38 +1,31 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed Jan 20 15:45:22 CET 2021
+Created on Tue Feb  2 09:42:31 CET 2021
 
 @author: edouard.duchesnay@cea.fr
 
-Population description
+Sources:
 
+
+Population description
              TIV        age
 sex
-0.0  1458.560863  35.909910
-1.0  1283.825687  40.947635
-                                                            TIV        age
+0.0  1499.599429  33.117413
+1.0  1326.079475  31.387403
+                       TIV        age
 diagnosis
-control                                             1383.028836  38.643216
-psychotic bipolar disorder                          1351.313738  37.401709
-relative of proband with psychotic bipolar diso...  1350.709520  40.117647
-relative of proband with schizoaffective disorder   1336.081444  41.504065
-relative of proband with schizophrenia              1331.678799  43.622857
-schizoaffective disorder                            1327.429595  36.252252
-schizophrenia                                       1400.200306  34.281250
-{'control': 199,
- 'schizophrenia': 192,
- 'relative of proband with schizoaffective disorder': 123,
- 'schizoaffective disorder': 111,
- 'psychotic bipolar disorder': 117,
- 'relative of proband with schizophrenia': 175,
- 'relative of proband with psychotic bipolar disorder': 119}
+FEP            1444.038633  29.186047
+control        1432.053401  31.370235
+schizophrenia  1421.522848  34.506979
+{'control': 420,
+ 'schizophrenia': 275,
+ 'FEP': 43}
 """
 
 import os
 import os.path
 import glob
-import re
 import click
 import numpy as np
 import pandas as pd
@@ -42,11 +35,11 @@ from nitk import bids
 
 #%% INPUTS:
 
-STUDY_PATH = '/neurospin/psy_sbox/bsnip1'
+STUDY_PATH = '/neurospin/psy_sbox/schizconnect-vip-prague'
 CLINIC_CSV = '/neurospin/psy_sbox/all_studies/phenotype/phenotypes_SCHIZCONNECT_VIP_PRAGUE_BSNIP_BIOBD_ICAAR_START_20201223.tsv'
-NII_FILENAMES = glob.glob(
-    os.path.join(STUDY_PATH, "derivatives/cat12-12.6_vbm/sub-*/ses-V1/anat/mri/mwp1*.nii"))
-assert len(NII_FILENAMES) == 1042
+NII_FILENAMES = glob.glob("/neurospin/psy/schizconnect-vip-prague/derivatives/cat12-12.6_vbm/sub-*/mri/mwp1*.nii")
+N_SUBJECTS = 738
+assert len(NII_FILENAMES) == 738
 
 #%% OUTPUTS:
 
@@ -76,48 +69,42 @@ def make_participants(output, dry):
     participants.participant_id = participants.participant_id.astype(str)
 
     assert participants.shape == (3857, 46)
-    # rm subjects with missing age or site
+    # rm subjects with missing sex, age, site or diagnosis
     participants = participants[participants.sex.notnull() &
                                 participants.age.notnull() &
                                 participants.site.notnull() &
                                 participants.diagnosis.notnull()]
     assert participants.shape == (2663, 46)
 
-    participants = participants[participants.study == 'BSNIP']
-    assert participants.shape == (1094, 46)
+    participants = participants[participants.study.isin(['SCHIZCONNECT-VIP', 'PRAGUE'])]
+    assert participants.shape == (739, 46)
 
 
     #%% Read mwp1
-    ni_bsnip_filenames = NII_FILENAMES
-    assert len(ni_bsnip_filenames) == 1042
+    ni_schizconnect_filenames = NII_FILENAMES
+    assert len(ni_schizconnect_filenames) == N_SUBJECTS
 
-    ni_bsnip_df = pd.DataFrame([pd.Series(bids.get_keys(filename))
-                                for filename in ni_bsnip_filenames])
+    ni_schizconnect_df = pd.DataFrame([pd.Series(bids.get_keys(filename))
+                                for filename in ni_schizconnect_filenames])
 
     # Keep only participants with processed T1
-    participants = pd.merge(participants, ni_bsnip_df, on="participant_id")
-    assert participants.shape == (1042, 48)
+    participants = pd.merge(participants, ni_schizconnect_df, on="participant_id")
+    assert participants.shape == (N_SUBJECTS, 48)
 
     #%% Read Total Imaging volumes
     vol_cols = ["participant_id", 'TIV', 'CSF_Vol', 'GM_Vol', 'WM_Vol']
 
-    tivo_bsnip = pd.read_csv(os.path.join(STUDY_PATH,
+    tivo_schizconnect = pd.read_csv(os.path.join(STUDY_PATH,
         'derivatives/cat12-12.6_vbm_roi/cat12-12.6_vbm_roi.tsv'), sep='\t')[vol_cols]
-    tivo_bsnip.participant_id = tivo_bsnip.participant_id.astype(str)
+    tivo_schizconnect.participant_id = tivo_schizconnect.participant_id.astype(str)
 
     # assert tivo_icaar.shape == (171, 6)
     # assert len(ni_icaar_filenames) == 171
 
-    # assert tivo_schizconnect.shape == (738, 6)
-    # assert len(ni_schizconnect_filenames) == 738
+    assert tivo_schizconnect.shape ==  (N_SUBJECTS, 5)
 
-    # assert tivo_bsnip.shape == (1042, 6)
-    # assert len(ni_bsnip_filenames) == 1042
-
-    assert tivo_bsnip.shape ==  (1036, 5)
-
-    participants = pd.merge(participants, tivo_bsnip, on="participant_id")
-    assert participants.shape == (1036, 52)
+    participants = pd.merge(participants, tivo_schizconnect, on="participant_id")
+    assert participants.shape == (N_SUBJECTS, 52)
 
     # Save This one as the participants file
     participants_filename = os.path.join(output, "participants.tsv")
