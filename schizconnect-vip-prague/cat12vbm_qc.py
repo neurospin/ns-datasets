@@ -1,7 +1,7 @@
 import pandas as pd
 import os
 import argparse
-import numpy as np
+import nibabel
 from nitk.cat12vbm.xml2csvscores import parse_xml_files_scoresQC
 from nitk.image.img_qc import plot_pca, compute_mean_correlation,\
                                 pdf_plottings, pdf_cat, mwp1toreport,\
