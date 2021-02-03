@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Feb  2 09:42:31 CET 2021
+Created on Tue Feb  2 09:45:51 CET 2021
 
 @author: edouard.duchesnay@cea.fr
 
@@ -11,16 +11,28 @@ Sources:
 Population description
              TIV        age
 sex
-0.0  1499.599429  33.117413
-1.0  1326.079475  31.387403
-                       TIV        age
+F    1365.035388  21.915254
+M    1535.555070  21.617647
+                          TIV        age
 diagnosis
-FEP            1444.038633  29.186047
-control        1432.053401  31.370235
-schizophrenia  1421.522848  34.506979
-{'control': 420,
- 'schizophrenia': 275,
- 'FEP': 43}
+Non-UHR-NC        1428.439931  24.333333
+Psychotic         1363.883739  30.000000
+Retard_Mental     1486.156753  18.000000
+UHR-C             1449.962017  20.187500
+UHR-NC            1495.255581  22.402985
+UHR-NaN           1484.890756  21.470588
+bipolar disorder  1620.096916  20.500000
+control           1431.030670  21.312500
+schizophrenia     1457.618582  21.954545
+{'UHR-C': 32,
+ 'UHR-NC': 67,
+ 'UHR-NaN': 17,
+ 'Non-UHR-NC': 3,
+ 'Psychotic': 1,
+ 'schizophrenia': 22,
+ 'control': 16,
+ 'bipolar disorder': 2,
+ 'Retard_Mental': 1}
 """
 
 import os
@@ -32,15 +44,17 @@ import pandas as pd
 
 from nitk import bids
 
-
 #%% INPUTS:
 
-STUDY_PATH = '/neurospin/psy_sbox/schizconnect-vip-prague'
+STUDY_PATH = '/neurospin/psy_sbox/start-icaar-eugei'
 CLINIC_CSV = '/neurospin/psy_sbox/all_studies/phenotype/phenotypes_SCHIZCONNECT_VIP_PRAGUE_BSNIP_BIOBD_ICAAR_START_20201223.tsv'
-NII_FILENAMES = glob.glob("/neurospin/psy/schizconnect-vip-prague/derivatives/cat12-12.6_vbm/sub-*/mri/mwp1*.nii")
+NII_FILENAMES = glob.glob("/neurospin/psy/start-icaar-eugei/derivatives/cat12-12.6_vbm/sub-*/ses-*/anat/mri/mwp1*.nii")
 
-N_SUBJECTS = 738
-assert len(NII_FILENAMES) == 738
+N_SUBJECTS = 161 # Some subject have 2 != participants_id => 2 time points
+# participants.irm.unique() ['M0', 'MF'] == Inclusion/final
+N_SCANS = 171
+
+assert len(NII_FILENAMES) == N_SCANS
 
 #%% OUTPUTS:
 
@@ -77,34 +91,34 @@ def make_participants(output, dry):
                                 participants.diagnosis.notnull()]
     assert participants.shape == (2663, 46)
 
-    participants = participants[participants.study.isin(['SCHIZCONNECT-VIP', 'PRAGUE'])]
-    assert participants.shape == (739, 46)
+    participants = participants[participants.study.isin(['ICAAR_EUGEI_START'])]
+    assert participants.shape == (N_SUBJECTS, 46)
 
 
     #%% Read mwp1
-    ni_schizconnect_filenames = NII_FILENAMES
-    assert len(ni_schizconnect_filenames) == N_SUBJECTS
+    ni_icaar_filenames = NII_FILENAMES
+    assert len(ni_icaar_filenames) == N_SCANS
 
-    ni_schizconnect_df = pd.DataFrame([pd.Series(bids.get_keys(filename))
-                                for filename in ni_schizconnect_filenames])
+    ni_icaar_df = pd.DataFrame([pd.Series(bids.get_keys(filename))
+                                for filename in ni_icaar_filenames])
 
     # Keep only participants with processed T1
-    participants = pd.merge(participants, ni_schizconnect_df, on="participant_id")
+    participants = pd.merge(participants, ni_icaar_df, on="participant_id")
     assert participants.shape == (N_SUBJECTS, 48)
 
     #%% Read Total Imaging volumes
     vol_cols = ["participant_id", 'TIV', 'CSF_Vol', 'GM_Vol', 'WM_Vol']
 
-    tivo_schizconnect = pd.read_csv(os.path.join(STUDY_PATH,
+    tivo_icaar = pd.read_csv(os.path.join(STUDY_PATH,
         'derivatives/cat12-12.6_vbm_roi/cat12-12.6_vbm_roi.tsv'), sep='\t')[vol_cols]
-    tivo_schizconnect.participant_id = tivo_schizconnect.participant_id.astype(str)
+    tivo_icaar.participant_id = tivo_icaar.participant_id.astype(str)
 
     # assert tivo_icaar.shape == (171, 6)
     # assert len(ni_icaar_filenames) == 171
 
-    assert tivo_schizconnect.shape ==  (N_SUBJECTS, 5)
+    assert tivo_icaar.shape ==  (N_SCANS, 5)
 
-    participants = pd.merge(participants, tivo_schizconnect, on="participant_id")
+    participants = pd.merge(participants, tivo_icaar, on="participant_id")
     assert participants.shape == (N_SUBJECTS, 52)
 
     # Save This one as the participants file
@@ -118,7 +132,7 @@ def make_participants(output, dry):
         print("= Dry run do not save to %s" % participants_filename)
 
     # Sex mapping:
-    # participants['sex'] = participants.sex.map({0:"M", 1:"F"})
+    participants['sex'] = participants.sex.map({0:"M", 1:"F"})
     print(participants[["sex", "TIV", 'age']].groupby('sex').mean())
     print(participants[["diagnosis", "TIV", 'age']].groupby('diagnosis').mean())
     print({lev:np.sum(participants["diagnosis"]==lev) for lev in participants["diagnosis"].unique()})
