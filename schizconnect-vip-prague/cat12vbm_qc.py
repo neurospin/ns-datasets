@@ -55,7 +55,8 @@ def launch_cat12_qc(img_filenames, mask_filenames, root_cat12vbm, inputscores):
 
     return 0
 
-def apply_qc_limit_criteria(study_path, root_qc):
+def apply_qc_limit_criteria(study_path, root_cat12vbm):
+    root_qc = root_cat12vbm+"_qc"
     participants = pd.read_csv(os.path.join(study_path, "participants.tsv"), sep='\t')
     participants.participant_id = participants.participant_id.astype(str)
 
@@ -72,8 +73,18 @@ def apply_qc_limit_criteria(study_path, root_qc):
 
     # participant not processed with cat12vbm
     nocat12_filename = os.path.join(root_qc, 'noprocessed_participants.tsv')
-    nocat12 = participants.participant_id[~participants.participant_id.isin(qc.participant_id.values())]
-    nocat12.to_csv(nocat12_filename, sep='\t', index=False)
+    nocat12 = participants.participant_id[~participants.participant_id.isin(qc.participant_id)]
+    nocat12 = pd.DataFrame(nocat12, columns=['participant_id', 'err'])
+
+    for index, row in nocat12.iterrows():
+        sub = row['participant_id']
+        err = "sub-{0}/ses-v1/anat/err".format(sub)
+        path_err = os.path.join(root_cat12vbm, err)
+        err_name = os.listdir(path_err)[0]
+        err_name = err_name.split(".")[-1]
+        row["err"] = err_name
+
+    nocat12.to_csv(nocat12_filename, sep='\t', index=False, header=['participant_id', 'err'])
 
 
 def main():
@@ -97,14 +108,10 @@ def main():
     study_path = os.sep.join(study_path)
 
     launch_cat12_qc(img_filenames, mask_filenames, root_cat12vbm, input_qcscores)
-    #apply_qc_limit_criteria(study_path)
+    apply_qc_limit_criteria(study_path, root_cat12vbm)
 
-    # COMMAND
-    # python3 /volatile/git/ns-datasets/cat12vbm_qc.py
-    # --input /neurospin/psy_sbox/schizconnect-vip-prague/derivatives/cat12-12.7_vbm/sub-*/ses-*/anat/mri/mwp1sub-*_ses-*_T1w.nii
-    # --input_qcscores /neurospin/psy_sbox/schizconnect-vip-prague/derivatives/cat12-12.7_vbm/sub-*/ses-*/anat/report/cat_sub-*_ses-*_T1w.xml
-    # --output_qcscores /neurospin/psy_sbox/schizconnect-vip-prague/derivatives/cat12-12.7_vbm_qc/scoreqc.tsv
-    # --root_cat12vbm /neurospin/psy_sbox/schizconnect-vip-prague/derivatives/cat12-12.7_vbm
+    # COMMAND Terminal
+    # python3 neurospin/psy_sbox/git/ns-datasets/schizconnect-vip-prague/cat12vbm_qc.py --input /neurospin/psy_sbox/schizconnect-vip-prague/derivatives/cat12-12.7_vbm/sub-*/ses-*/anat/mri/mwp1sub-*_ses-*_T1w.nii --input_qcscores /neurospin/psy_sbox/schizconnect-vip-prague/derivatives/cat12-12.7_vbm/sub-*/ses-*/anat/report/cat_sub-*_ses-*_T1w.xml --root_cat12vbm /neurospin/psy_sbox/schizconnect-vip-prague/derivatives/cat12-12.7_vbm
 
 
 if __name__ == "__main__":
