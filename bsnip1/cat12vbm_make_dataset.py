@@ -4,24 +4,41 @@
 Created on Tue Dec 22 11:07:29 2020
 
 @author: edouard.duchesnay@cea.fr
+
+===================
+= Descriptive stats
+===================
+diagnosis
+control                                                199
+psychotic bipolar disorder                             116
+relative of proband with psychotic bipolar disorder    119
+relative of proband with schizoaffective disorder      123
+relative of proband with schizophrenia                 174
+schizoaffective disorder                               111
+schizophrenia                                          190
+dtype: int64
+========================================
+= Basic QC: Reload and check dimension =
+========================================
+============================
+= Basic QC: Age prediction =
+============================
+rois:	CV R2:0.6702, MAE:6.0837, RMSE:8.0387
+vbm:	CV R2:0.7848, MAE:5.2339, RMSE:6.5138
 """
 
 import os
+import os.path
 import numpy as np
 import pandas as pd
 import glob
-import os.path
-#import subprocess
-#import re
-import glob
-import urllib
 import click
-import datetime
 
 # Neuroimaging
 import nibabel
 from nitk.image import img_to_array, global_scaling, compute_brain_mask, rm_small_clusters, img_plot_glass_brain
 from nitk.bids import get_keys
+from nitk.data import fetch_data
 
 # sklearn for QC
 import sklearn.linear_model as lm
@@ -32,19 +49,18 @@ from sklearn.model_selection import KFold
 
 #%% INPUTS:
 
-STUDY_PATH = '/neurospin/psy_sbox/bsnip1'
+STUDY = 'bsnip1'
+STUDY_PATH = '/neurospin/psy_sbox/%s' % STUDY
 NII_FILENAMES = glob.glob(
-    os.path.join(STUDY_PATH, "derivatives/cat12-12.6_vbm/sub-*/ses-V1/anat/mri/mwp1*.nii"))
+    "/neurospin/psy/%s/derivatives/cat12-12.6_vbm/sub-*/ses-V1/anat/mri/mwp1*.nii" % STUDY)
 assert len(NII_FILENAMES) == 1042
 
 #%% OUTPUTS:
 
-#OUTPUT_DIR = "/neurospin/psy_sbox/all_studies/derivatives/arrays"
 OUTPUT_DIR = "/neurospin/tmp/psy_sbox/all_studies/derivatives/arrays"
-#OUTPUT_FILENAME = "{dirname}/biobd_cat12vbm_{datatype}_%s.{ext}" % \
-#    str(datetime.date.today()).replace("-","")
-OUTPUT_FILENAME = "{dirname}/bsnip1_cat12vbm_{datatype}.{ext}"
+OUTPUT_FILENAME = "{dirname}/{study}_cat12vbm_{datatype}.{ext}"
 
+N_SUBJECTS = 1032
 
 def read_data():
     """Read images, ROis, and match with participants
@@ -74,7 +90,7 @@ def read_data():
     qc.participant_id = qc.participant_id.astype(str)
 
     participants = participants[participants.participant_id.isin(qc.participant_id[qc["qc"] == 1])]
-    assert participants.shape[0] == 1032
+    assert participants.shape[0] == N_SUBJECTS
 
 
     #%% Read Images
@@ -89,8 +105,8 @@ def read_data():
     imgs_df = imgs_df[select_mask_]
     imgs_df.reset_index(drop=True, inplace=True)
     del select_mask_
-    assert imgs_df.shape[0] == 1032
-    assert imgs_arr.shape == (1032, 1, 121, 145, 121)
+    assert imgs_df.shape[0] == N_SUBJECTS
+    assert imgs_arr.shape == (N_SUBJECTS, 1, 121, 145, 121)
 
     #%% Align participants with images, eventually repplicates for sessions
 
@@ -101,7 +117,7 @@ def read_data():
     participants = pd.merge(left=imgs_df[["participant_id", "session"]], right=participants, how='inner',
                     on=["participant_id", "session"])
     participants.reset_index(drop=True, inplace=True)
-    assert participants.shape == (1032, 52)  # Make sure no particiant is lost
+    assert participants.shape == (N_SUBJECTS, 52)  # Make sure no particiant is lost
 
     #%% Align ROIs with images
 
@@ -114,39 +130,15 @@ def read_data():
         "Rois does not contains some expected columns"
     rois = pd.merge(left=imgs_df[["participant_id", "session"]], right=rois, how='inner',
                     on=["participant_id", "session"])
-    assert rois.shape == (1032, 290)
+    assert rois.shape == (N_SUBJECTS, 290)
 
 
     # Final QC
-    assert participants.shape[0] == rois.shape[0] == imgs_arr.shape[0] == imgs_df.shape[0] == 1032
+    assert participants.shape[0] == rois.shape[0] == imgs_arr.shape[0] == imgs_df.shape[0] == N_SUBJECTS
     assert np.all(participants.participant_id == rois.participant_id)
     assert np.all(rois.participant_id == imgs_df.participant_id)
 
     return participants, rois, imgs_arr, target_img
-
-
-def fetch_data(files, dst, base_url, verbose=1):
-    """Fetch dataset.
-
-    Args:
-        files (str): file.
-        dst (str): destination directory.
-        base_url (str): url, examples:
-
-    Returns:
-        downloaded ([str, ]): paths to downloaded files.
-
-    """
-    downloaded = []
-    for file in files:
-        src_filename = os.path.join(base_url, file)
-        dst_filename = os.path.join(dst, file)
-        if not os.path.exists(dst_filename):
-            if verbose:
-                print("Download: %s" % src_filename)
-            urllib.request.urlretrieve(src_filename, dst_filename)
-        downloaded.append(dst_filename)
-    return downloaded
 
 
 #%% Read Laurie-Anne QC and save it into derivatives/cat12-12.6_vbm_qc/qc.tsv
@@ -236,9 +228,9 @@ def make_dataset(output, nogs, dry):
     mask_img = nibabel.load(os.path.join(output, "mni_cerebrum-gm-mask_1.5mm.nii.gz"))
     assert np.all(mask_img.affine == target_img.affine), "Data shape do not match cat12VBM"
 
-    participants_filename = OUTPUT_FILENAME.format(dirname=output, datatype="participants", ext="csv")
-    rois_filename = OUTPUT_FILENAME.format(dirname=output, datatype="rois%s" % preproc_str, ext="csv")
-    vbm_filename = OUTPUT_FILENAME.format(dirname=output, datatype="mwp1%s" % preproc_str, ext="npy")
+    participants_filename = OUTPUT_FILENAME.format(dirname=output, study=STUDY, datatype="participants", ext="csv")
+    rois_filename = OUTPUT_FILENAME.format(dirname=output, study=STUDY, datatype="rois%s" % preproc_str, ext="csv")
+    vbm_filename = OUTPUT_FILENAME.format(dirname=output, study=STUDY, datatype="mwp1%s" % preproc_str, ext="npy")
 
     if not dry:
         print("======================")
@@ -254,6 +246,12 @@ def make_dataset(output, nogs, dry):
     else:
         print("= Dry run do not save to %s" % participants_filename)
 
+    print("===================")
+    print("= Descriptive stats")
+    print("===================")
+
+    print(participants[["diagnosis"]].groupby('diagnosis').size())
+
     #%% QC1: Basic ML brain age
 
     print("========================================")
@@ -265,9 +263,9 @@ def make_dataset(output, nogs, dry):
     imgs_arr = np.load(vbm_filename)
     mask_img = nibabel.load(os.path.join(output, "mni_cerebrum-gm-mask_1.5mm.nii.gz"))
 
-    assert participants.shape == (1032, 52)
-    assert rois.shape == (1032, 290)
-    assert imgs_arr.shape == (1032, 1, 121, 145, 121)
+    assert participants.shape == (N_SUBJECTS, 52)
+    assert rois.shape == (N_SUBJECTS, 290)
+    assert imgs_arr.shape == (N_SUBJECTS, 1, 121, 145, 121)
 
     print("============================")
     print("= Basic QC: Age prediction =")

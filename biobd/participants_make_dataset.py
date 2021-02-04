@@ -10,8 +10,18 @@ Sources:
 cp /neurospin/lnao/Pdiff/josselin/laurie-anne/pull_data/bipolar_transcoding_psy_keep.csv /neurospin/psy/bipolar/biobd/code/bipolar_transcoding_remove_duclicates_laurie-anne_20190415.csv
 cp /neurospin/lnao/Pdiff/josselin/laurie-anne/pull_data/biodb_clinical.csv /neurospin/psy/bipolar/biobd/code/biodb_clinical_laurie-anne_20190415.csv
 
-Population description
+Population description:
 
+diagnosis
+ADHD                  1
+ADHD, SU              1
+EDM                   1
+MDE, ADHD, panic      1
+MDE, PTSD             1
+SU, panic             1
+bipolar disorder    307
+control             356
+dtype: int64
              TIV        age
 sex
 0.0  1480.877380  39.969044
@@ -26,14 +36,6 @@ MDE, PTSD         1397.231961  23.000000
 SU, panic         1794.500488  20.000000
 bipolar disorder  1401.771065  39.656550
 control           1428.363433  39.847359
-{'control': 356,
- 'bipolar disorder': 307,
- 'ADHD, SU': 1,
- 'EDM': 1,
- 'MDE, ADHD, panic': 1,
- 'SU, panic': 1,
- 'MDE, PTSD': 1,
- 'ADHD': 1}
 """
 
 import os
@@ -47,11 +49,12 @@ from nitk import bids
 
 
 #%% INPUTS:
-
-STUDY_PATH = '/neurospin/psy/biobd'
+STUDY = 'biobd'
+STUDY_PATH = '/neurospin/psy_sbox/%s' % STUDY
 CLINIC_CSV = '/neurospin/psy/all_studies/phenotype/phenotypes_SCHIZCONNECT_VIP_PRAGUE_BSNIP_BIOBD_ICAAR_START_20201223.tsv'
 NII_FILENAMES = glob.glob(
-    os.path.join(STUDY_PATH, "derivatives/cat12-12.6_vbm/sub-*/ses-V1/anat/mri/mwp1*.nii"))
+    "/neurospin/psy/%s/derivatives/cat12-12.6_vbm/sub-*/ses-V1/anat/mri/mwp1*.nii" % STUDY)
+
 assert len(NII_FILENAMES) == 746
 
 #%% OUTPUTS:
@@ -92,7 +95,6 @@ def make_participants(output, dry):
     participants = participants[participants.study == 'BIOBD']
     assert participants.shape == (669, 46)
 
-
     #%% Read mwp1
     ni_biobd_filenames = NII_FILENAMES
     assert len(ni_biobd_filenames) == 746
@@ -122,6 +124,8 @@ def make_participants(output, dry):
     participants = pd.merge(participants, tivo_biobd, on="participant_id")
     assert participants.shape == (669, 52)
 
+    print(participants.shape)
+
     # Save This one as the participants file
     participants_filename = os.path.join(output, "participants.tsv")
     if not dry:
@@ -134,9 +138,9 @@ def make_participants(output, dry):
 
     # Sex mapping:
     # participants['sex'] = participants.sex.map({0:"M", 1:"F"})
+    print(participants[["diagnosis"]].groupby('diagnosis').size())
     print(participants[["sex", "TIV", 'age']].groupby('sex').mean())
     print(participants[["diagnosis", "TIV", 'age']].groupby('diagnosis').mean())
-    print({lev:np.sum(participants["diagnosis"]==lev) for lev in participants["diagnosis"].unique()})
 
     return participants
 
