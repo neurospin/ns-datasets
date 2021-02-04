@@ -9,18 +9,23 @@ Sources:
 
 
 Population description
+
+diagnosis
+FEP               43
+control          420
+schizophrenia    275
+
              TIV        age
 sex
 0.0  1499.599429  33.117413
 1.0  1326.079475  31.387403
+
                        TIV        age
 diagnosis
 FEP            1444.038633  29.186047
 control        1432.053401  31.370235
 schizophrenia  1421.522848  34.506979
-{'control': 420,
- 'schizophrenia': 275,
- 'FEP': 43}
+
 """
 
 import os
@@ -34,10 +39,11 @@ from nitk import bids
 
 
 #%% INPUTS:
-
-STUDY_PATH = '/neurospin/psy_sbox/schizconnect-vip-prague'
+STUDY = 'schizconnect-vip-prague'
+STUDY_PATH = '/neurospin/psy_sbox/%s' % STUDY
 CLINIC_CSV = '/neurospin/psy_sbox/all_studies/phenotype/phenotypes_SCHIZCONNECT_VIP_PRAGUE_BSNIP_BIOBD_ICAAR_START_20201223.tsv'
-NII_FILENAMES = glob.glob("/neurospin/psy/schizconnect-vip-prague/derivatives/cat12-12.6_vbm/sub-*/mri/mwp1*.nii")
+NII_FILENAMES = glob.glob(
+    "/neurospin/psy/%s/derivatives/cat12-12.6_vbm/sub-*/mri/mwp1*.nii" % STUDY)
 
 N_SUBJECTS = 738
 assert len(NII_FILENAMES) == 738
@@ -119,9 +125,9 @@ def make_participants(output, dry):
 
     # Sex mapping:
     # participants['sex'] = participants.sex.map({0:"M", 1:"F"})
+    print(participants[["diagnosis"]].groupby('diagnosis').size())
     print(participants[["sex", "TIV", 'age']].groupby('sex').mean())
     print(participants[["diagnosis", "TIV", 'age']].groupby('diagnosis').mean())
-    print({lev:np.sum(participants["diagnosis"]==lev) for lev in participants["diagnosis"].unique()})
 
     return participants
 

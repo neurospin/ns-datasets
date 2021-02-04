@@ -4,24 +4,37 @@
 Created on Tue Feb  2 09:42:31 CET 2021
 
 @author: edouard.duchesnay@cea.fr
+
+===================
+= Descriptive stats
+===================
+diagnosis
+FEP               43
+control          420
+schizophrenia    275
+dtype: int64
+========================================
+= Basic QC: Reload and check dimension =
+========================================
+============================
+= Basic QC: Age prediction =
+============================
+rois:	CV R2:0.6080, MAE:5.7307, RMSE:7.2890
+vbm:	CV R2:0.6914, MAE:5.0869, RMSE:6.4744
 """
 
 import os
+import os.path
 import numpy as np
 import pandas as pd
 import glob
-import os.path
-#import subprocess
-#import re
-import glob
-import urllib
 import click
-import datetime
 
 # Neuroimaging
 import nibabel
 from nitk.image import img_to_array, global_scaling, compute_brain_mask, rm_small_clusters, img_plot_glass_brain
 from nitk.bids import get_keys
+from nitk.data import fetch_data
 
 # sklearn for QC
 import sklearn.linear_model as lm
@@ -32,19 +45,19 @@ from sklearn.model_selection import KFold
 
 #%% INPUTS:
 
-STUDY_PATH = '/neurospin/psy_sbox/schizconnect-vip-prague'
-NII_FILENAMES = glob.glob("/neurospin/psy/schizconnect-vip-prague/derivatives/cat12-12.6_vbm/sub-*/mri/mwp1*.nii")
+STUDY = "schizconnect-vip-prague"
+STUDY_PATH = '/neurospin/psy_sbox/%s' % STUDY
+NII_FILENAMES = glob.glob(
+    "/neurospin/psy/%s/derivatives/cat12-12.6_vbm/sub-*/mri/mwp1*.nii" % STUDY)
 
 assert len(NII_FILENAMES) == 738
 
 #%% OUTPUTS:
 
-#OUTPUT_DIR = "/neurospin/psy_sbox/all_studies/derivatives/arrays"
-OUTPUT_DIR = "/neurospin/tmp/psy_sbox/all_studies/derivatives/arrays"
-#OUTPUT_FILENAME = "{dirname}/biobd_cat12vbm_{datatype}_%s.{ext}" % \
-#    str(datetime.date.today()).replace("-","")
-OUTPUT_FILENAME = "{dirname}/bsnip1_cat12vbm_{datatype}.{ext}"
+    #%% OUTPUTS:
 
+OUTPUT_DIR = "/neurospin/tmp/psy_sbox/all_studies/derivatives/arrays"
+OUTPUT_FILENAME = "{dirname}/{study}_cat12vbm_{datatype}.{ext}"
 
 def read_data():
     """Read images, ROis, and match with participants
@@ -126,30 +139,6 @@ def read_data():
     assert np.all(rois.participant_id == imgs_df.participant_id)
 
     return participants, rois, imgs_arr, target_img
-
-
-def fetch_data(files, dst, base_url, verbose=1):
-    """Fetch dataset.
-
-    Args:
-        files (str): file.
-        dst (str): destination directory.
-        base_url (str): url, examples:
-
-    Returns:
-        downloaded ([str, ]): paths to downloaded files.
-
-    """
-    downloaded = []
-    for file in files:
-        src_filename = os.path.join(base_url, file)
-        dst_filename = os.path.join(dst, file)
-        if not os.path.exists(dst_filename):
-            if verbose:
-                print("Download: %s" % src_filename)
-            urllib.request.urlretrieve(src_filename, dst_filename)
-        downloaded.append(dst_filename)
-    return downloaded
 
 
 #%% Read Laurie-Anne QC and save it into derivatives/cat12-12.6_vbm_qc/qc.tsv
@@ -239,9 +228,9 @@ def make_dataset(output, nogs, dry):
     mask_img = nibabel.load(os.path.join(output, "mni_cerebrum-gm-mask_1.5mm.nii.gz"))
     assert np.all(mask_img.affine == target_img.affine), "Data shape do not match cat12VBM"
 
-    participants_filename = OUTPUT_FILENAME.format(dirname=output, datatype="participants", ext="csv")
-    rois_filename = OUTPUT_FILENAME.format(dirname=output, datatype="rois%s" % preproc_str, ext="csv")
-    vbm_filename = OUTPUT_FILENAME.format(dirname=output, datatype="mwp1%s" % preproc_str, ext="npy")
+    participants_filename = OUTPUT_FILENAME.format(dirname=output, study=STUDY, datatype="participants", ext="csv")
+    rois_filename = OUTPUT_FILENAME.format(dirname=output, study=STUDY, datatype="rois%s" % preproc_str, ext="csv")
+    vbm_filename = OUTPUT_FILENAME.format(dirname=output, study=STUDY, datatype="mwp1%s" % preproc_str, ext="npy")
 
     if not dry:
         print("======================")
@@ -256,6 +245,12 @@ def make_dataset(output, nogs, dry):
         print(participants_filename, rois_filename, vbm_filename)
     else:
         print("= Dry run do not save to %s" % participants_filename)
+
+    print("===================")
+    print("= Descriptive stats")
+    print("===================")
+
+    print(participants[["diagnosis"]].groupby('diagnosis').size())
 
     #%% QC1: Basic ML brain age
 
