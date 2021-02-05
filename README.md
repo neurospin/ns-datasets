@@ -48,15 +48,15 @@ General organization
 1. **Unorganized "dirty" phenotypes** go in `sourcedata/phenotypes/year_some_description`.
 2. **Cured** phenotypes are saved in dicrectory `phenotypes/year_some_description*`.
    Cured phenotypes `.tsv` files must contains a `participant_id` column.
-  Ideally, curation should be made by scripts (ex: `phenotypes_clean_year_some_description.py`) saved in this git repository.
+  Ideally, curation should be made by scripts (ex: `phenotypes_make_dataset_<year>_<some_description>.py`) saved in this git repository.
 
 # Scripts
 
 ```
 <study>/
+├── phenotypes_make_dataset_<year>_<some_description>.py: re-organize file from source data to rawdata
 ├── participants_make_dataset.py: build the participants.tsv file
 ├── source_to_bids_2021_t1mri_from_london_iop.py: re-organize file from source data to rawdata
-├── phenotypes_clean_year_some_description.py: re-organize file from source data to rawdata
 ├── <soft>_<01_first_processing>.py: do some pre-processing
 ├── <soft>_<02_second_processing>.py: do some pre-processing
 ├── <soft>_make_dataset.py (ex: cat12vbm_make_dataset.py): build `array` dataset
