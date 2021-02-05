@@ -1,6 +1,6 @@
-# NeusoSpin Datasets
+# NeuroSpin Datasets
 
-Processing scripts of NeusoSpin dataset
+Processing scripts of NeuroSpin dataset
 
 # Images organization
 
