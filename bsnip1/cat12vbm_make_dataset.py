@@ -292,5 +292,93 @@ def make_dataset(output, nogs, dry):
         print("%s:\tCV R2:%.4f, MAE:%.4f, RMSE:%.4f" % (name, r2, mae, rmse))
 
 
+
+###############################################################################
+#%% bsnip1 => bsnip1-bd / bsnip1-sz / bsnip1-hc
+
+def split_bsnip(WD):
+
+    def load_data(participants_filename, rois_filename, vbm_filename):
+        participants = pd.read_csv(participants_filename)
+        rois = pd.read_csv(rois_filename)
+        imgs_arr = np.load(vbm_filename)
+
+        return participants, rois, imgs_arr
+
+    def save_data(participants, participants_filename, rois, rois_filename, imgs_arr, vbm_filename):
+            participants.to_csv(participants_filename, index=False)
+            rois.to_csv(rois_filename, index=False)
+            #target_img.save()  # No need to save the reference image since it is identical to the mask
+            np.save(vbm_filename, imgs_arr)
+
+    #%% Load bsnip
+    participants_filename = OUTPUT_FILENAME.format(dirname=WD, study = "bsnip1", datatype="participants", ext="csv")
+    rois_filename = OUTPUT_FILENAME.format(dirname=WD, study = "bsnip1", datatype="rois-gs", ext="csv")
+    vbm_filename = OUTPUT_FILENAME.format(dirname=WD, study = "bsnip1", datatype="mwp1-gs", ext="npy")
+
+    participants, rois, imgs_arr = \
+        load_data(participants_filename=participants_filename,
+                  rois_filename=rois_filename,
+                  vbm_filename=vbm_filename)
+
+    assert participants.shape[0] == rois.shape[0] == imgs_arr.shape[0] == 1032
+
+    #%% bsnip1-bd
+    sub_study = "bsnip1-bd"
+    nb_subjects = 116
+
+    select = participants.diagnosis.isin(['bipolar disorder', 'psychotic bipolar disorder'])
+    assert select.sum() == nb_subjects
+
+    participants_s, rois_s, imgs_arr_s = participants[select], rois[select], imgs_arr[select]
+    assert participants_s.shape[0] == rois_s.shape[0] == imgs_arr_s.shape[0] == nb_subjects
+
+    participants_filename = OUTPUT_FILENAME.format(dirname=WD, study=sub_study, datatype="participants", ext="csv")
+    rois_filename = OUTPUT_FILENAME.format(dirname=WD, study=sub_study, datatype="rois-gs", ext="csv")
+    vbm_filename = OUTPUT_FILENAME.format(dirname=WD, study=sub_study, datatype="mwp1-gs", ext="npy")
+
+    save_data(participants=participants_s, participants_filename=participants_filename,
+              rois=rois_s, rois_filename=rois_filename,
+              imgs_arr=imgs_arr_s, vbm_filename=vbm_filename)
+
+    #%% bsnip1-hc
+    sub_study = "bsnip1-hc"
+    nb_subjects = 199
+
+    select = participants.diagnosis.isin(['control'])
+    assert select.sum() == nb_subjects
+
+    participants_s, rois_s, imgs_arr_s = participants[select], rois[select], imgs_arr[select]
+    assert participants_s.shape[0] == rois_s.shape[0] == imgs_arr_s.shape[0] == nb_subjects
+
+    participants_filename = OUTPUT_FILENAME.format(dirname=WD, study=sub_study, datatype="participants", ext="csv")
+    rois_filename = OUTPUT_FILENAME.format(dirname=WD, study=sub_study, datatype="rois-gs", ext="csv")
+    vbm_filename = OUTPUT_FILENAME.format(dirname=WD, study=sub_study, datatype="mwp1-gs", ext="npy")
+
+    save_data(participants=participants_s, participants_filename=participants_filename,
+              rois=rois_s, rois_filename=rois_filename,
+              imgs_arr=imgs_arr_s, vbm_filename=vbm_filename)
+
+    #%% bsnip1-hc
+    sub_study = "bsnip1-sz"
+    nb_subjects = 190
+
+    select = participants.diagnosis.isin(['schizophrenia'])
+    assert select.sum() == nb_subjects
+
+    participants_s, rois_s, imgs_arr_s = participants[select], rois[select], imgs_arr[select]
+    assert participants_s.shape[0] == rois_s.shape[0] == imgs_arr_s.shape[0] == nb_subjects
+
+    participants_filename = OUTPUT_FILENAME.format(dirname=WD, study=sub_study, datatype="participants", ext="csv")
+    rois_filename = OUTPUT_FILENAME.format(dirname=WD, study=sub_study, datatype="rois-gs", ext="csv")
+    vbm_filename = OUTPUT_FILENAME.format(dirname=WD, study=sub_study, datatype="mwp1-gs", ext="npy")
+
+    save_data(participants=participants_s, participants_filename=participants_filename,
+              rois=rois_s, rois_filename=rois_filename,
+              imgs_arr=imgs_arr_s, vbm_filename=vbm_filename)
+
 if __name__ == '__main__':
     make_dataset()
+
+    if False:
+        split_bsnip(WD=OUTPUT_DIR)

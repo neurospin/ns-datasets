@@ -9,6 +9,18 @@ Sources:
 
 
 Population description
+
+diagnosis
+Non-UHR-NC           3
+Psychotic            1
+Retard_Mental        1
+UHR-C               32
+UHR-NC              67
+UHR-NaN             17
+bipolar disorder     2
+control             16
+schizophrenia       22
+dtype: int64
              TIV        age
 sex
 F    1365.035388  21.915254
@@ -24,15 +36,6 @@ UHR-NaN           1484.890756  21.470588
 bipolar disorder  1620.096916  20.500000
 control           1431.030670  21.312500
 schizophrenia     1457.618582  21.954545
-{'UHR-C': 32,
- 'UHR-NC': 67,
- 'UHR-NaN': 17,
- 'Non-UHR-NC': 3,
- 'Psychotic': 1,
- 'schizophrenia': 22,
- 'control': 16,
- 'bipolar disorder': 2,
- 'Retard_Mental': 1}
 """
 
 import os
@@ -45,10 +48,11 @@ import pandas as pd
 from nitk import bids
 
 #%% INPUTS:
-
-STUDY_PATH = '/neurospin/psy_sbox/start-icaar-eugei'
+STUDY = 'start-icaar-eugei'
+STUDY_PATH = '/neurospin/psy_sbox/%s' % STUDY
 CLINIC_CSV = '/neurospin/psy_sbox/all_studies/phenotype/phenotypes_SCHIZCONNECT_VIP_PRAGUE_BSNIP_BIOBD_ICAAR_START_20201223.tsv'
-NII_FILENAMES = glob.glob("/neurospin/psy/start-icaar-eugei/derivatives/cat12-12.6_vbm/sub-*/ses-*/anat/mri/mwp1*.nii")
+NII_FILENAMES = glob.glob(
+    "/neurospin/psy/%s/derivatives/cat12-12.6_vbm/sub-*/ses-*/anat/mri/mwp1*.nii" % STUDY)
 
 N_SUBJECTS = 161 # Some subject have 2 != participants_id => 2 time points
 # participants.irm.unique() ['M0', 'MF'] == Inclusion/final
@@ -133,9 +137,9 @@ def make_participants(output, dry):
 
     # Sex mapping:
     participants['sex'] = participants.sex.map({0:"M", 1:"F"})
+    print(participants[['diagnosis', 'irm']].groupby(['diagnosis', 'irm']).size())
     print(participants[["sex", "TIV", 'age']].groupby('sex').mean())
     print(participants[["diagnosis", "TIV", 'age']].groupby('diagnosis').mean())
-    print({lev:np.sum(participants["diagnosis"]==lev) for lev in participants["diagnosis"].unique()})
 
     return participants
 

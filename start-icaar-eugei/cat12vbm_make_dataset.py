@@ -4,24 +4,43 @@
 Created on Tue Feb  2 09:45:51 CET 2021
 
 @author: edouard.duchesnay@cea.fr
+
+===================
+= Descriptive stats
+===================
+diagnosis
+Non-UHR-NC           3
+Psychotic            1
+Retard_Mental        1
+UHR-C               32
+UHR-NC              67
+UHR-NaN             17
+bipolar disorder     2
+control             16
+schizophrenia       22
+
+============================
+= Basic QC: Age prediction =
+============================
+start-icaar-eugei-uhrbl
+
+rois:	CV R2:-0.1248, MAE:2.2824, RMSE:2.8315
+vbm:	CV R2:-0.0862, MAE:2.2424, RMSE:2.7894
+
 """
 
 import os
+import os.path
 import numpy as np
 import pandas as pd
 import glob
-import os.path
-#import subprocess
-#import re
-import glob
-import urllib
 import click
-import datetime
 
 # Neuroimaging
 import nibabel
 from nitk.image import img_to_array, global_scaling, compute_brain_mask, rm_small_clusters, img_plot_glass_brain
 from nitk.bids import get_keys
+from nitk.data import fetch_data
 
 # sklearn for QC
 import sklearn.linear_model as lm
@@ -31,9 +50,10 @@ from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import KFold
 
 #%% INPUTS:
-
-STUDY_PATH = '/neurospin/psy_sbox/start-icaar-eugei'
-NII_FILENAMES = glob.glob("/neurospin/psy_sbox/start-icaar-eugei/derivatives/cat12-12.6_vbm/sub-*/ses-*/anat/mri/mwp1*.nii")
+STUDY = "start-icaar-eugei"
+STUDY_PATH = '/neurospin/psy_sbox/%s' % STUDY
+NII_FILENAMES = glob.glob(
+    "/neurospin/psy_sbox/%s/derivatives/cat12-12.6_vbm/sub-*/ses-*/anat/mri/mwp1*.nii" % STUDY)
 
 N_SUBJECTS = 161 # Some subject have 2 != participants_id => 2 time points
 # participants.irm.unique() ['M0', 'MF'] == Inclusion/final
@@ -47,7 +67,7 @@ assert len(NII_FILENAMES) == N_SCANS
 #%% OUTPUTS:
 
 OUTPUT_DIR = "/neurospin/tmp/psy_sbox/all_studies/derivatives/arrays"
-OUTPUT_FILENAME = "{dirname}/start-icaar-eugei_cat12vbm_{datatype}.{ext}"
+OUTPUT_FILENAME = "{dirname}/{study}_cat12vbm_{datatype}.{ext}"
 
 
 def read_data():
@@ -133,28 +153,6 @@ def read_data():
     return participants, rois, imgs_arr, target_img
 
 
-def fetch_data(files, dst, base_url, verbose=1):
-    """Fetch dataset.
-
-    Args:
-        files (str): file.
-        dst (str): destination directory.
-        base_url (str): url, examples:
-
-    Returns:
-        downloaded ([str, ]): paths to downloaded files.
-
-    """
-    downloaded = []
-    for file in files:
-        src_filename = os.path.join(base_url, file)
-        dst_filename = os.path.join(dst, file)
-        if not os.path.exists(dst_filename):
-            if verbose:
-                print("Download: %s" % src_filename)
-            urllib.request.urlretrieve(src_filename, dst_filename)
-        downloaded.append(dst_filename)
-    return downloaded
 
 
 #%% Read Laurie-Anne QC and save it into derivatives/cat12-12.6_vbm_qc/qc.tsv
@@ -205,12 +203,11 @@ DX_DEFAULT = ["UHR-C", "UHR-NC"]
 @click.command()
 @click.option('--output', type=str, help='Output dir', default=OUTPUT_DIR)
 @click.option('--nogs', is_flag=True, help='No global scaling to the Total Intracranial volume')
-@click.option('--fu', is_flag=True, help='Select also Follow-Up partifipants (default is only baseline)')
-@click.option("--dx", multiple=True, default=DX_DEFAULT,
-              help='Selected diagnosis in %s. Multiple values are allowed.\
-              Default is %s.' % (" ".join(DX), "--dx " +" --dx ".join(DX_DEFAULT)))
+#@click.option("--dx", multiple=True, default=DX_DEFAULT,
+#              help='Selected diagnosis in %s. Multiple values are allowed.\
+#              Default is %s.' % (" ".join(DX), "--dx " +" --dx ".join(DX_DEFAULT)))
 @click.option('--dry', is_flag=True, help='Dry Run: no files are written, only check')
-def make_dataset(output, nogs, fu, dx, dry):
+def make_dataset(output, nogs, dry):
     """ Make cat12BVM dataset, create mpw1, rois, mask.
 
     Parameters
@@ -232,11 +229,8 @@ def make_dataset(output, nogs, fu, dx, dry):
     print("Arguments")
     print("output", output)
     print("nogs", nogs)
-    print("fu", fu)
-    print("dx", dx)
-
-    #dx = ('UHR-C', 'UHR-NC')
-    #fu = False
+    #print("fu", fu)
+    #print("dx", dx)
 
     #%% Read data
 
@@ -245,19 +239,6 @@ def make_dataset(output, nogs, fu, dx, dry):
     print("=============")
 
     participants, rois, imgs_arr, target_img = read_data()
-
-    # Select Follow-up?
-    if fu:
-        select = participants.irm.isin(['M0', 'MF'])
-    else:
-        select = participants.irm.isin(['M0'])
-
-    # Select DX
-    select = select & participants["diagnosis"].isin(dx)
-    if dx == ('UHR-C', 'UHR-NC') and not fu:
-        assert select.sum() == 82
-
-    participants, rois, imgs_arr = participants[select], rois[select], imgs_arr[select]
 
     #%% Global scalling
 
@@ -280,23 +261,61 @@ def make_dataset(output, nogs, fu, dx, dry):
     mask_img = nibabel.load(os.path.join(output, "mni_cerebrum-gm-mask_1.5mm.nii.gz"))
     assert np.all(mask_img.affine == target_img.affine), "Data shape do not match cat12VBM"
 
-    participants_filename = OUTPUT_FILENAME.format(dirname=output, datatype="participants", ext="csv")
-    rois_filename = OUTPUT_FILENAME.format(dirname=output, datatype="rois%s" % preproc_str, ext="csv")
-    vbm_filename = OUTPUT_FILENAME.format(dirname=output, datatype="mwp1%s" % preproc_str, ext="npy")
+    print("===================")
+    print("= Descriptive stats")
+    print("===================")
+
+    print(participants[["diagnosis"]].groupby('diagnosis').size())
 
     if not dry:
         print("======================")
         print("= Save data to: %s" % output)
         print("======================")
 
-        participants.to_csv(participants_filename, index=False)
-        rois.to_csv(rois_filename, index=False)
-        #target_img.save()  # No need to save the reference image since it is identical to the mask
-        np.save(vbm_filename, imgs_arr)
+        def save_data(participants_s, rois_s, imgs_arr_s, output, sub_study):
+            participants_filename = OUTPUT_FILENAME.format(dirname=output, study=sub_study, datatype="participants", ext="csv")
+            rois_filename = OUTPUT_FILENAME.format(dirname=output, study=sub_study, datatype="rois-gs", ext="csv")
+            vbm_filename = OUTPUT_FILENAME.format(dirname=output, study=sub_study, datatype="mwp1-gs", ext="npy")
+            print(sub_study, "=>\n-", participants_filename, "\n-", rois_filename, "\n-", vbm_filename)
 
-        print(participants_filename, rois_filename, vbm_filename)
+            participants_s.to_csv(participants_filename, index=False)
+            rois_s.to_csv(rois_filename, index=False)
+            np.save(vbm_filename, imgs_arr_s)
+
+        save_data(participants, rois, imgs_arr, output, "start-icaar-eugei")
+
+        print("=================")
+        print("= Split dataset =")
+        print("=================")
+
+        #%% start-icaar-eugei-uhrbl : UHR@baseline
+        sub_study = "start-icaar-eugei-uhrbl"
+        nb_subjects = 82
+
+        select = participants.irm.isin(['M0']) &\
+                 participants["diagnosis"].isin(('UHR-C', 'UHR-NC'))
+
+        participants_s, rois_s, imgs_arr_s = participants[select], rois[select], imgs_arr[select]
+        assert participants_s.shape[0] == rois_s.shape[0] == imgs_arr_s.shape[0] == nb_subjects
+
+        save_data(participants_s, rois_s, imgs_arr_s, output, sub_study)
+
+
+        #%% start-icaar-eugei-uhrbl : UHR@baseline
+        sub_study = "start-icaar-eugei-szhcbl"
+        nb_subjects = 38
+
+        select = participants.irm.isin(['M0']) &\
+                 participants["diagnosis"].isin(('schizophrenia', 'control'))
+
+        participants_s, rois_s, imgs_arr_s = participants[select], rois[select], imgs_arr[select]
+        assert participants_s.shape[0] == rois_s.shape[0] == imgs_arr_s.shape[0] == nb_subjects
+
+        save_data(participants_s, rois_s, imgs_arr_s, output, sub_study)
+
     else:
         print("= Dry run do not save to %s" % participants_filename)
+
 
     #%% QC1: Basic ML brain age
 
@@ -304,12 +323,17 @@ def make_dataset(output, nogs, fu, dx, dry):
     print("= Basic QC: Reload and check dimension =")
     print("========================================")
 
+    sub_study = "start-icaar-eugei-uhrbl"
+    participants_filename = OUTPUT_FILENAME.format(dirname=output, study=sub_study, datatype="participants", ext="csv")
+    rois_filename = OUTPUT_FILENAME.format(dirname=output, study=sub_study, datatype="rois-gs", ext="csv")
+    vbm_filename = OUTPUT_FILENAME.format(dirname=output, study=sub_study, datatype="mwp1-gs", ext="npy")
+
     participants = pd.read_csv(participants_filename)
     rois = pd.read_csv(rois_filename)
     imgs_arr = np.load(vbm_filename)
     mask_img = nibabel.load(os.path.join(output, "mni_cerebrum-gm-mask_1.5mm.nii.gz"))
 
-    if dx == ('UHR-C', 'UHR-NC') and not fu:
+    if sub_study == "start-icaar-eugei-uhrbl":
         assert participants.shape == (82, 52)
         assert rois.shape == (82, 291)
         assert imgs_arr.shape == (82, 1, 121, 145, 121)
@@ -339,5 +363,7 @@ def make_dataset(output, nogs, fu, dx, dry):
         print("%s:\tCV R2:%.4f, MAE:%.4f, RMSE:%.4f" % (name, r2, mae, rmse))
 
 
+
 if __name__ == '__main__':
     make_dataset()
+
