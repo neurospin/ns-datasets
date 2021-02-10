@@ -7,6 +7,15 @@ Created on Wed Jan 20 15:45:22 CET 2021
 
 Population description
 
+diagnosis
+control                                                199
+psychotic bipolar disorder                             117
+relative of proband with psychotic bipolar disorder    119
+relative of proband with schizoaffective disorder      123
+relative of proband with schizophrenia                 175
+schizoaffective disorder                               111
+schizophrenia                                          192
+dtype: int64
              TIV        age
 sex
 0.0  1458.560863  35.909910
@@ -20,13 +29,7 @@ relative of proband with schizoaffective disorder   1336.081444  41.504065
 relative of proband with schizophrenia              1331.678799  43.622857
 schizoaffective disorder                            1327.429595  36.252252
 schizophrenia                                       1400.200306  34.281250
-{'control': 199,
- 'schizophrenia': 192,
- 'relative of proband with schizoaffective disorder': 123,
- 'schizoaffective disorder': 111,
- 'psychotic bipolar disorder': 117,
- 'relative of proband with schizophrenia': 175,
- 'relative of proband with psychotic bipolar disorder': 119}
+
 """
 
 import os
@@ -41,11 +44,11 @@ from nitk import bids
 
 
 #%% INPUTS:
-
-STUDY_PATH = '/neurospin/psy_sbox/bsnip1'
+STUDY = 'bsnip1'
+STUDY_PATH = '/neurospin/psy_sbox/%s' % STUDY
 CLINIC_CSV = '/neurospin/psy_sbox/all_studies/phenotype/phenotypes_SCHIZCONNECT_VIP_PRAGUE_BSNIP_BIOBD_ICAAR_START_20201223.tsv'
 NII_FILENAMES = glob.glob(
-    os.path.join(STUDY_PATH, "derivatives/cat12-12.6_vbm/sub-*/ses-V1/anat/mri/mwp1*.nii"))
+    "/neurospin/psy/%s/derivatives/cat12-12.6_vbm/sub-*/ses-V1/anat/mri/mwp1*.nii" % STUDY)
 assert len(NII_FILENAMES) == 1042
 
 #%% OUTPUTS:
@@ -131,9 +134,9 @@ def make_participants(output, dry):
 
     # Sex mapping:
     # participants['sex'] = participants.sex.map({0:"M", 1:"F"})
+    print(participants[["diagnosis"]].groupby('diagnosis').size())
     print(participants[["sex", "TIV", 'age']].groupby('sex').mean())
     print(participants[["diagnosis", "TIV", 'age']].groupby('diagnosis').mean())
-    print({lev:np.sum(participants["diagnosis"]==lev) for lev in participants["diagnosis"].unique()})
 
     return participants
 
