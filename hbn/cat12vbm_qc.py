@@ -120,9 +120,7 @@ def main():
     apply_qc_limit_criteria(study_path, root_cat12vbm)
 
     # COMMAND Terminal
-    # python3 [...]/git/ns-datasets/schizconnect-vip-prague/cat12vbm_qc.py --input /neurospin/psy_sbox/schizconnect-vip-prague/derivatives/cat12-12.7_vbm/sub-*/ses-*/anat/mri/mwp1sub-*_ses-*_T1w.nii --input_qcscores /neurospin/psy_sbox/schizconnect-vip-prague/derivatives/cat12-12.7_vbm/sub-*/ses-*/anat/report/cat_sub-*_ses-*_T1w.xml --root_cat12vbm /neurospin/psy_sbox/schizconnect-vip-prague/derivatives/cat12-12.7_vbm
-    # python3 [...]/git/ns-datasets/schizconnect-vip-prague/cat12vbm_qc.py --input /neurospin/psy_sbox/schizconnect-vip-prague/derivatives/cat12-12.6_vbm/sub-*/mri/mwp1average*.nii --input_qcscores /neurospin/psy_sbox/schizconnect-vip-prague/derivatives/cat12-12.6_vbm/sub-*/report/cat_average*.xml --root_cat12vbm /neurospin/psy_sbox/schizconnect-vip-prague/derivatives/cat12-12.6_vbm
-
+    # python3 /volatile/git/ns-datasets/hbn/cat12vbm_qc.py --input /neurospin/psy/hbn/derivatives/cat12vbm/sub-*/mri/mwp1sub-*_acq-HCP*_T1w.nii --input_qcscores /neurospin/psy/hbn/derivatives/cat12vbm/sub-*/report/cat_sub-*_acq-HCP*_T1w.xml --root_cat12vbm /neurospin/psy/hbn/derivatives/cat12vbm
 
 if __name__ == "__main__":
     main()
