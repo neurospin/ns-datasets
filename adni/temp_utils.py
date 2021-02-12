@@ -1,0 +1,443 @@
+import xml.etree.ElementTree as ET
+import argparse
+import glob
+import ast
+import re
+import csv
+import traceback
+import sys
+from collections import OrderedDict
+
+import numpy as np
+from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib.gridspec import GridSpec
+import seaborn as sns
+import pandas as pd
+import nibabel
+from nilearn import plotting
+from PyPDF2 import PdfFileReader, PdfFileWriter
+import os
+import scipy
+import nilearn
+import nilearn.masking
+
+participant_re = re.compile("sub-([^_/]+)")
+session_re = re.compile("ses-([^_/]+)")
+run_re = re.compile("run-([a-zA-Z0-9]+)")
+
+def plot_pca(X, df_description):
+    # Assume that X has dimension (n_samples, ...)
+    pca = PCA(n_components=2)
+    # Do the SVD
+    pca.fit(X.reshape(len(X), -1))
+    # Apply the reduction
+    PC = pca.transform(X.reshape(len(X), -1))
+    fig, ax = plt.subplots(figsize=(20, 30))
+    ax.scatter(PC[:, 0], PC[:, 1])
+    # Put an annotation on each data point
+    for i, participant_id in enumerate(df_description['participant_id']):
+        ax.annotate(participant_id, xy=(PC[i, 0], PC[i, 1]), xytext=(4,4), textcoords='offset pixels')
+
+    plt.xlabel("PC1 (var=%.2f)" % pca.explained_variance_ratio_[0])
+    plt.ylabel("PC2 (var=%.2f)" % pca.explained_variance_ratio_[1])
+    plt.axis('equal')
+    plt.tight_layout()
+    plt.savefig("pca.pdf")
+    # plt.show()
+
+def compute_mean_correlation(X, df_description):
+    # Compute the correlation matrix
+    corr = np.corrcoef(X.reshape(len(X), -1))
+    # if nan because of variance 0, put corr to 0
+    for j in range(len(corr)):
+        if np.isnan(corr[j]).any():
+            corr[j] = np.nan_to_num(corr[j])
+            print("nan in corr : \n", df_description['path'][j])
+    # Compute the Z-transformation of the correlation
+    F = 0.5 * np.log((1. + corr) / (1. - corr))
+
+    # Compute the mean value for each sample by masking the diagonal
+    np.fill_diagonal(F, 0)
+    # if inf beacause of corr =1 (except diag), replace inf by a big value
+    for i in range(len(F)):
+        if np.isinf(F[i]).any():
+            F[i] = np.nan_to_num(F[i])
+            print("inf in F : \n", df_description['path'][i])
+    F_mean = F.sum(axis=1)/(len(F)-1)
+    # verifications
+    if np.isnan(F_mean).any() or np.isnan(F).any():
+        raise ValueError("F_mean contains nan {0},{1}, {2}".format(F, F_mean, np.isnan(F).any()))
+    np.fill_diagonal(F, 1)
+    # Get the index sorted by descending Z-corrected mean correlation values
+    sort_idx = np.argsort(F_mean)
+    # Get the corresponding ID
+    participant_ids = df_description['participant_id'][sort_idx]
+    sessions_ids = df_description['session'][sort_idx]
+    run_ids = df_description['run'][sort_idx]
+    Freorder = F[np.ix_(sort_idx, sort_idx)]
+    plt.subplots(figsize=(10, 10))
+    cmap = sns.color_palette("RdBu_r", 110)
+    # Draw the heatmap with the mask and correct aspect ratio
+    ax = sns.heatmap(Freorder, mask=None, cmap=cmap, vmin=-1, vmax=1, center=0)
+    plt.savefig("corr_mat.pdf")
+    # plt.show()
+    cor = pd.DataFrame(dict(participant_id=participant_ids, session=sessions_ids, run=run_ids, corr_mean=F_mean[sort_idx]))
+    cor = cor.reindex(['participant_id', 'session', 'run', 'corr_mean'], axis='columns')
+    return cor
+
+def pdf_plottings(nii_filenames, mean_corr, output_pdf, limit=None):
+    max_range = limit or len(nii_filenames)
+    pdf = PdfPages(output_pdf)
+    for i, nii_file in list(enumerate(nii_filenames))[:max_range]:
+        fig = plt.figure(figsize=(30, 20))
+        gs = GridSpec(3, 7, figure=fig)
+        ax1 = fig.add_subplot(gs[0, 0])
+        ax2 = fig.add_subplot(gs[1, 0])
+        ax3 = fig.add_subplot(gs[2, 0])
+        ax4 = fig.add_subplot(gs[0, 1:])
+        ax5 = fig.add_subplot(gs[1, 1:])
+        ax6 = fig.add_subplot(gs[2, 1:])
+        nii = nibabel.load(nii_file)
+        nii_ref = nii_file.replace("mwp1sub","wmsub")
+        nii_ref = nibabel.load(nii_ref)
+        plt.suptitle('Subject %s, session %s, run %s with mean '
+                     'correlation %.3f'
+                     % (mean_corr[i][0], mean_corr[i][1],
+                        mean_corr[i][2], mean_corr[i][3]),
+                     fontsize=40)
+        plotting.plot_anat(nii_ref, figure=fig, axes=ax1, dim=0, cut_coords=1, display_mode='x')
+        plotting.plot_anat(nii_ref, figure=fig, axes=ax2, dim=0, cut_coords=1, display_mode='y')
+        plotting.plot_anat(nii_ref, figure=fig, axes=ax3, dim=0, cut_coords=1, display_mode='z')
+        plotting.plot_anat(nii, figure=fig, axes=ax4, dim=-1,
+                           cut_coords=6, display_mode='x')
+        plotting.plot_anat(nii, figure=fig, axes=ax5, dim=-1,
+                           cut_coords=6, display_mode='y')
+        plotting.plot_anat(nii, figure=fig, axes=ax6, dim=-1,
+                           cut_coords=6, display_mode='z')
+        plt.subplots_adjust(wspace=0, hspace=0, top=0.9, bottom=0.1)
+        pdf.savefig()
+        plt.close(fig)
+    pdf.close()
+
+def pdf_cat(pdf_filenames, output_pdf):
+    pdfWriter = PdfFileWriter()
+    for file in pdf_filenames:
+        pdfFileObj = open(file, 'rb')
+        pdfReader = PdfFileReader(pdfFileObj)
+        for pageNum in range(pdfReader.numPages):
+            pageObj = pdfReader.getPage(pageNum)
+            pdfWriter.addPage(pageObj)
+    pdfOutput = open(output_pdf, 'wb')
+    pdfWriter.write(pdfOutput)
+    pdfOutput.close()
+
+def mwp1toreport(nii_filenames, root_report):
+    reports_list = []
+    for i in nii_filenames:
+        dico = get_keys(i)
+        subject = dico['participant_id']
+        session = dico['session']
+        filename = os.path.basename(i)[4:]
+        if re.search(".gz", i):
+            filename = filename.replace(".nii.gz", ".pdf")
+        else:
+            filename = filename.replace(".nii", ".pdf")
+        report_filename1 = "sub-{0}/ses-{1}/anat/report/catreport_{2}".format(subject, session, filename)
+        report_filename2 = "sub-{0}/anat/report/catreport_{1}".format(subject, filename)
+        report_filename3 = "sub-{0}/report/catreport_{1}".format(subject, filename)
+        if os.path.exists(os.path.join(root_report, report_filename1)):
+            pathreport = os.path.join(root_report, report_filename1)
+            reports_list.append(pathreport)
+        elif os.path.exists(os.path.join(root_report, report_filename2)):
+            pathreport = os.path.join(root_report, report_filename2)
+            reports_list.append(pathreport)
+        elif os.path.exists(os.path.join(root_report, report_filename3)):
+            pathreport = os.path.join(root_report, report_filename3)
+            reports_list.append(pathreport)
+        else:
+            print("no reports for : {0} {1}".format(subject, session))
+
+    return reports_list
+
+def concat_tsv(mean_corr, path_score):
+    score = pd.read_csv(path_score, sep='\t')
+    corr = pd.read_csv(mean_corr, sep='\t')
+    res = corr.merge(score, how='inner', on=['participant_id', 'session', 'run'])
+
+    return res
+
+def get_keys(filename):
+    """
+    Extract keys from bids filename. Check consistency of filename.
+
+    Parameters
+    ----------
+    filename : str
+        bids path
+
+    Returns
+    -------
+    dict
+        The minimum returned value is dict(participant_id=<match>,
+                             session=<match, '' if empty>,
+                             path=filename)
+
+    Raises
+    ------
+    ValueError
+        if match failed or inconsistent match.
+
+    Examples
+    --------
+    >>> import nitk.bids
+    >>> nitk.bids.get_keys('/dirname/sub-ICAAR017/ses-V1/mri/y_sub-ICAAR017_ses-V1_acq-s03_T1w.nii')
+    {'participant_id': 'ICAAR017', 'session': 'V1'}
+    """
+    keys = OrderedDict()
+
+    participant_id = participant_re.findall(filename)
+    if len(set(participant_id)) != 1:
+        raise ValueError('Found several or no participant id', participant_id, 'in path', filename)
+    keys["participant_id"] = participant_id[0]
+
+    session = session_re.findall(filename)
+    if len(set(session)) > 1:
+        raise ValueError('Found several sessions', session, 'in path', filename)
+
+    elif len(set(session)) == 1:
+        keys["session"] = session[0]
+
+    else:
+        keys["session"] = '1'
+
+    run = run_re.findall(filename)
+    if len(set(run)) == 1:
+        keys["run"] = run[0]
+
+    else:
+        keys["run"] = '1'
+
+    keys["path"] = filename
+
+    return keys
+
+def parse_xml_files_scoresQC(xml_filenames, output_file=None):
+    # organized as /participant_id/sess_id/[TIV, GM, WM, CSF, ROIs]
+    output = dict()
+    for xml_file in xml_filenames:
+
+        xml_file_keys = get_keys(xml_file)
+        participant_id = xml_file_keys['participant_id']
+        session = xml_file_keys['session'] or 'V1'
+        run = xml_file_keys['run'] or '1'
+
+        # Parse the CAT12 report to find the TIV and CGW volumes
+        if re.match('.*report/cat_.*\.xml', xml_file):
+            tree = ET.parse(xml_file)
+            try:
+                NCR = float(tree.find('qualityratings').find('NCR').text)
+                ICR = float(tree.find('qualityratings').find('ICR').text)
+                IQR = float(tree.find('qualityratings').find('IQR').text)
+
+            except Exception as e:
+                print('Parsing error for %s:\n%s' % (xml_file, traceback.format_exc()))
+            else:
+                if participant_id not in output:
+                    output[participant_id] = {session: {run: dict()}}
+                elif session not in output[participant_id]:
+                    output[participant_id][session] = {run: dict()}
+                elif run not in output[participant_id][session]:
+                    output[participant_id][session][run] = dict()
+
+                output[participant_id][session][run]['NCR'] = float(NCR)
+                output[participant_id][session][run]['ICR'] = float(ICR)
+                output[participant_id][session][run]['IQR'] = float(IQR)
+
+    fieldnames = ['participant_id', 'session', 'run', 'NCR', 'ICR', 'IQR']
+    if output_file is not None:
+        with open(output_file, 'w') as tsvfile:
+            writer = csv.DictWriter(tsvfile, fieldnames=fieldnames, dialect="excel-tab")
+            writer.writeheader()
+            for participant_id in output:
+                for session in output[participant_id].keys():
+                    for (run, measures) in output[participant_id][session].items():
+                        writer.writerow(dict(participant_id=participant_id, session=session, run=run, **measures))
+
+    return output
+
+def img_to_array(img_filenames, check_same_referential=True, expected=dict()):
+    """
+    Convert nii images to array (n_subjects, 1, , image_axis0, image_axis1, ...)
+    Assume BIDS organisation of file to retrive participant_id, session and run.
+
+    Parameters
+    ----------
+    img_filenames : [str]
+        path to images
+
+    check_same_referential : bool
+        if True (default) check that all image have the same referential.
+
+    expected : dict
+        optional dictionary of parameters to check, ex: dict(shape=(121, 145, 121), zooms=(1.5, 1.5, 1.5))
+
+    Returns
+    -------
+        imgs_arr : array (n_subjects, 1, , image_axis0, image_axis1, ...)
+            The array data structure (n_subjects, n_channels, image_axis0, image_axis1, ...)
+
+        df : DataFrame
+            With column: 'participant_id', 'session', 'run', 'path'
+
+        ref_img : nii image
+            The first image used to store referential and all information relative to the images.
+
+    Example
+    -------
+    >>> from  nitk.image import img_to_array
+    >>> import glob
+    >>> img_filenames = glob.glob("/neurospin/psy/start-icaar-eugei/derivatives/cat12/vbm/sub-*/ses-*/mri/mwp1sub*.nii")
+    >>> imgs_arr, df, ref_img = img_to_array(img_filenames)
+    >>> print(imgs_arr.shape)
+    (171, 1, 121, 145, 121)
+    >>> print(df.shape)
+    (171, 3)
+    >>> print(df.head())
+      participant_id session                                               path
+    0       ICAAR017      V1  /neurospin/psy/start-icaar-eugei/derivatives/c...
+    1       ICAAR033      V1  /neurospin/psy/start-icaar-eugei/derivatives/c...
+    2  STARTRA160489      V1  /neurospin/psy/start-icaar-eugei/derivatives/c...
+    3  STARTLB160534      V1  /neurospin/psy/start-icaar-eugei/derivatives/c...
+    4       ICAAR048      V1  /neurospin/psy/start-icaar-eugei/derivatives/c...
+
+    """
+
+    df = pd.DataFrame([pd.Series(get_keys(filename)) for filename in img_filenames])
+
+    imgs_nii = [nibabel.load(filename) for filename in df.path]
+
+    ref_img = imgs_nii[0]
+
+    # Check expected dimension
+    if 'shape' in expected:
+        assert ref_img.get_fdata().shape == expected['shape']
+    if 'zooms' in expected:
+        assert ref_img.header.get_zooms() == expected['zooms']
+
+    if check_same_referential: # Check all images have the same transformation
+        assert np.all([np.all(img.affine == ref_img.affine) for img in imgs_nii])
+        assert np.all([np.all(img.get_fdata().shape == ref_img.get_fdata().shape) for img in imgs_nii])
+
+    assert np.all([(not np.isnan(img.get_fdata()).any()) for img in imgs_nii])
+    # Load image subjects x channels (1) x image
+    imgs_arr = np.stack([np.expand_dims(img.get_fdata(), axis=0) for img in imgs_nii])
+
+    return imgs_arr, df, ref_img
+
+def compute_brain_mask(imgs, target_img=None, mask_thres_mean=0.1, mask_thres_std=1e-6, clust_size_thres=10, verbose=1):
+    """
+    Compute brain mask:
+    (1) Implicit mask threshold `mean >= mask_thres_mean` and `std >= mask_thres_std`
+    (2) Use brain mask from `nilearn.masking.compute_gray_matter_mask(target_img)`
+    (3) mask = Implicit mask & brain mask
+    (4) Remove small branches with `scipy.ndimage.binary_opening`
+    (5) Avoid isolated clusters: remove clusters (of connected voxels) smaller that `clust_size_thres`
+
+    Parameters
+    ----------
+    imgs : [str] path to images
+        or array (n_subjects, 1, , image_axis0, image_axis1, ...) in this case
+        target_img must be provided.
+
+    target_img : nii image
+        Image defining the referential.
+
+    mask_thres_mean : float (default 0.1)
+        Implicit mask threshold `mean >= mask_thres_mean`
+
+    mask_thres_std : float (default 1e-6)
+        Implicit mask threshold `std >= mask_thres_std`
+
+    clust_size_thres : float (clust_size_thres 10)
+        Remove clusters (of connected voxels) smaller that `clust_size_thres`
+
+    verbose : int (default 1)
+        verbosity level
+
+    expected : dict
+        optional dictionary of parameters to check, ex: dict(shape=(121, 145, 121), zooms=(1.5, 1.5, 1.5))
+
+    Returns
+    -------
+         nii image:
+             In referencial of target_img or the first imgs
+
+    Example
+    -------
+    Parameters
+    ----------
+    NI_arr :  ndarray, of shape (n_subjects, 1, image_shape).
+    target_img : image.
+    mask_thres_mean : Implicit mask threshold `mean >= mask_thres_mean`
+    mask_thres_std : Implicit mask threshold `std >= mask_thres_std`
+    clust_size_thres : remove clusters (of connected voxels) smaller that `clust_size_thres`
+    verbose : int. verbosity level
+
+    Returns
+    -------
+    image of mask
+
+    Example
+    -------
+    >>> from  nitk.image import compute_brain_mask
+    >>> import glob
+    >>> imgs = glob.glob("/neurospin/psy/start-icaar-eugei/derivatives/cat12/vbm/sub-*/ses-*/mri/mwp1sub*.nii")
+    >>> mask_img = compute_brain_mask(imgs)
+    Clusters of connected voxels #3, sizes= [368569, 45, 19]
+    >>> mask_img.to_filename("/tmp/mask.nii")
+    """
+
+    if isinstance(imgs, list) and len(imgs) >= 1 and isinstance(imgs[0], str):
+        imgs_arr, df, target_img = img_to_array(imgs)
+
+    elif isinstance(imgs, np.ndarray) and imgs.ndim >= 5:
+        imgs_arr = imgs
+        assert isinstance(target_img, nibabel.nifti1.Nifti1Image)
+
+    # (1) Implicit mask
+    mask_arr = np.ones(imgs_arr.shape[1:], dtype=bool).squeeze()
+    if mask_thres_mean is not None:
+        mask_arr = mask_arr & (np.abs(np.mean(imgs_arr, axis=0)) >= mask_thres_mean).squeeze()
+    if mask_thres_std is not None:
+        mask_arr = mask_arr & (np.std(imgs_arr, axis=0) >= mask_thres_std).squeeze()
+
+    # (2) Brain mask: Compute a mask corresponding to the gray matter part of the brain.
+    # The gray matter part is calculated through the resampling of MNI152 template
+    # gray matter mask onto the target image
+    # In reality in is a brain mask
+    mask_img = nilearn.masking.compute_gray_matter_mask(target_img)
+
+    # (3) mask = Implicit mask & brain mask
+    mask_arr = (mask_img.get_fdata() == 1) & mask_arr
+
+    # (4) Remove small branches
+    mask_arr = scipy.ndimage.binary_opening(mask_arr)
+
+    # (5) Avoid isolated clusters: remove all cluster smaller that clust_size_thres
+    mask_clustlabels_arr, n_clusts = scipy.ndimage.label(mask_arr)
+
+    labels = np.unique(mask_clustlabels_arr)[1:]
+    for lab in labels:
+        clust_size = np.sum(mask_clustlabels_arr == lab)
+        if clust_size <= clust_size_thres:
+            mask_arr[mask_clustlabels_arr == lab] = False
+
+    if verbose >= 1:
+        mask_clustlabels_arr, n_clusts = scipy.ndimage.label(mask_arr)
+        labels = np.unique(mask_clustlabels_arr)[1:]
+        print("Clusters of connected voxels #%i, sizes=" % len(labels),
+              [np.sum(mask_clustlabels_arr == lab) for lab in labels])
+
+    return nilearn.image.new_img_like(target_img, mask_arr)
