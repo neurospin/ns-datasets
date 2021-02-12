@@ -1,3 +1,5 @@
+import sys
+sys.path.append("/volatile/git/ns-datasets")
 from utils import cat12_nii2npy
 
 ## Dataset name for the generated output .npy and .csv files
@@ -5,12 +7,12 @@ dataset = 'localizer'
 ## Initial .nii files
 nii_regex_path = '/neurospin/psy/'+dataset+'/derivatives/cat12-12.6_vbm/sub-*/ses-*/anat/mri/mwp1*.nii'
 ## Phenotype obtained with <phenotypes_make_dataset.py>
-phenotype_path = '/neurospin/psy_sbox/{dataset}/{dataset_u}_t1mri_mwp1_participants.csv'.format(dataset=dataset,
+phenotype_path = '/neurospin/psy_sbox/{dataset}/{dataset_u}_t1mri_mwp1_participants_merged.tsv'.format(dataset=dataset,
                                                                                                 dataset_u=dataset.upper())
 ## Separator the the phenotype.csv file
 sep ='\t'
 ## Where do we put the generated files ?
-output_path = '/neurospin/tmp/psy_sbox/all_studies/derivatives/arrays'
+output_path = '/neurospin/psy_sbox/analyses/201906_schizconnect-vip-prague-bsnip-biodb-icaar-start_assemble-all/data/cat12vbm_julietest'
 ## Add the QC file if available
 qc_path = '/neurospin/psy_sbox/{dataset}/derivatives/cat12-12.6_vbm_qc/qc.tsv'.format(dataset=dataset)
 ## How the participant's id are formatted ? (Either <int> or <str>)

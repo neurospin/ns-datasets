@@ -21,4 +21,11 @@ age_sex_dx_site_study_tiv = age_sex_dx_site_study_tiv[~age_sex_dx_site_study_tiv
                                                       ~age_sex_dx_site_study_tiv.TIV.isna() &
                                                       ~age_sex_dx_site_study_tiv.diagnosis.isna()]
 assert len(age_sex_dx_site_study_tiv) == len(tiv) - 4
-age_sex_dx_site_study_tiv.to_csv(os.path.join(LOCALIZER_PATH, 'LOCALIZER_t1mri_mwp1_participants.csv'), sep='\t', index=False)
+participants_columns_list = list(age_sex_dx_site.columns)
+participants_columns_list = [participants_columns_list[0]]+["session", "run"]+participants_columns_list[1:]
+rois_columns_list = list(tiv.columns)
+age_sex_dx_site_study = age_sex_dx_site_study_tiv[participants_columns_list]
+rois = age_sex_dx_site_study_tiv[rois_columns_list]
+age_sex_dx_site_study_tiv.to_csv(os.path.join(LOCALIZER_PATH, 'LOCALIZER_t1mri_mwp1_participants_merged.tsv'), sep='\t', index=False)
+age_sex_dx_site_study.reset_index().to_csv(os.path.join(LOCALIZER_PATH, 'LOCALIZER_t1mri_mwp1_participants.tsv'), sep='\t', index=False, columns=participants_columns_list)
+rois.reset_index().to_csv(os.path.join(LOCALIZER_PATH, 'LOCALIZER_t1mri_mwp1_ROIS.tsv'), sep='\t', index=False, columns=rois_columns_list)
