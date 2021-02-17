@@ -164,7 +164,7 @@ def mwp1toreport(nii_filenames, root_report):
 def concat_tsv(mean_corr, path_score):
     score = pd.read_csv(path_score, sep='\t')
     corr = pd.read_csv(mean_corr, sep='\t')
-    res = corr.merge(score, how='inner', on=['participant_id', 'session', 'run'])
+    res = corr.merge(score, how='outer', on=['participant_id', 'session', 'run'])
 
     return res
 

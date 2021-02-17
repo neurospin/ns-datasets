@@ -6,8 +6,9 @@ from temp_utils import parse_xml_files_scoresQC
 from temp_utils import plot_pca, compute_mean_correlation,\
                                 pdf_plottings, pdf_cat, mwp1toreport,\
                                 concat_tsv
-from temp_utils import img_to_array
+from temp_utils import img_to_array, get_keys
 from temp_utils import compute_brain_mask
+import glob
 
 
 def launch_cat12_qc(img_filenames, mask_filenames, root_cat12vbm, inputscores):
@@ -55,11 +56,9 @@ def launch_cat12_qc(img_filenames, mask_filenames, root_cat12vbm, inputscores):
 
     return 0
 
-def apply_qc_limit_criteria(study_path, root_cat12vbm):
-    root_qc = root_cat12vbm+"_qc"
-    participants = pd.read_csv(os.path.join(study_path, "participants.tsv"), sep='\t')
-    participants.participant_id = participants.participant_id.astype(str)
 
+def apply_qc_limit_criteria(root_cat12vbm):
+    root_qc = root_cat12vbm+"_qc"
     qc = pd.read_csv(os.path.join(root_qc, 'qc.tsv'), sep= "\t")
     qc.participant_id = qc.participant_id.astype(str)
     qc.corr_mean[ qc.corr_mean.abs() > 1] = qc.corr_mean.median()
@@ -71,23 +70,44 @@ def apply_qc_limit_criteria(study_path, root_cat12vbm):
     print("Perform manual look at the data, manually discard (set qc=0) participants in %s" % csv_filename)
     qc.to_csv(csv_filename, sep='\t', index=False)
 
-    # participant not processed with cat12vbm
-    nocat12_filename = os.path.join(root_qc, 'noprocessed_participants.tsv')
-    nocat12 = participants.participant_id[~participants.participant_id.isin(qc.participant_id)]
-    nocat12 = pd.DataFrame(nocat12, columns=['participant_id', 'err'])
 
-    for index, row in nocat12.iterrows():
+def cat12err(study_path, root_cat12vbm):
+    root_qc = root_cat12vbm+"_qc"
+    participants = pd.read_csv(os.path.join(study_path, "participants.tsv"), sep='\t')
+    participants.participant_id = participants.participant_id.astype(str)
+    qc = pd.read_csv(os.path.join(root_qc, 'qc.tsv'), sep= "\t")
+    qc.participant_id = qc.participant_id.astype(str)
+    # participant in error with cat12vbm
+    nocat12_filename = os.path.join(root_qc, 'cat12error_participants.tsv')
+    nocat12 = participants.participant_id[~participants.participant_id.isin(qc.participant_id)]
+    nocat12 = pd.DataFrame(nocat12, columns=['participant_id', 'err', "path"])
+    err_path = glob.glob("/neurospin/cati/ADNI/adni/BIDS/sub-*/ses-*/anat/err")
+    err_sub = []
+    for i in err_path:
+        name = get_keys(i)
+        err_sub.append(name["participant_id"])
+    df_sub = pd.DataFrame(data=err_sub, columns=["participant_id"])
+    nocat12_noprocessed = df_sub.merge(nocat12, how='outer', on=['participant_id'])
+
+    dico = {}
+    for index, row in nocat12_noprocessed.iterrows():
         sub = row['participant_id']
-        err = "sub-{0}/ses-V1/anat/err".format(sub)
-        path_err = os.path.join(root_cat12vbm, err)
-        if os.path.exists(path_err):
-            err_name = os.listdir(path_err)[0]
+        indices = [index for index, element in enumerate(err_sub) if element == sub]
+
+        if sub in err_sub:
+            if sub not in dico:
+                dico[sub]=0
+            else:
+                dico[sub]+=1
+            err_name = os.listdir(err_path[indices[dico[sub]]])[0]
             err_name = err_name.split(".")[-1]
             row["err"] = err_name
+            row["path"] = err_path[indices[dico[sub]]]
         else:
-            print("this subject is not in cat12vbm : {0}".format(sub))
+            row["err"] = "no processed"
 
-    nocat12.to_csv(nocat12_filename, sep='\t', index=False, header=['participant_id', 'err'])
+    nocat12_noprocessed.to_csv(nocat12_filename, sep='\t', index=False, header=['participant_id', 'err', 'path'])
+
 
 
 def main():
@@ -107,12 +127,13 @@ def main():
     input_qcscores = options.input_qcscores
     # paths
     root_cat12vbm = options.root_cat12vbm[0]
-    study_path = root_cat12vbm.split(os.sep)[0:-2]
+    study_path = root_cat12vbm.split(os.sep)[0:-1]
     study_path = os.sep.join(study_path)
     # study_path = "/volatile"
 
     launch_cat12_qc(img_filenames, mask_filenames, root_cat12vbm, input_qcscores)
-    apply_qc_limit_criteria(study_path, root_cat12vbm)
+    apply_qc_limit_criteria(root_cat12vbm)
+    cat12err(study_path, root_cat12vbm)
 
     # COMMAND Terminal
     # python3 /neurospin/psy_sbox/git/ns-datasets/adni/cat12vbm_qc.py --input /neurospin/cati/ADNI/adni/BIDS/sub-*/ses-*/anat/mri/mwp1sub[-_0-9a-zA-Z]*_T1w.nii --input_qcscores /neurospin/cati/ADNI/adni/BIDS/sub-*/ses-*/anat/report/cat_sub-*_T1w.xml --root_cat12vbm /neurospin/cati/ADNI/adni/BIDS
