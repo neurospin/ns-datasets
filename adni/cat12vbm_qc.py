@@ -1,13 +1,15 @@
+import sys
+sys.path.append("/neurospin/psy_sbox/git/ns-datasets")
 import pandas as pd
 import os
 import argparse
 import nibabel
-from temp_utils import parse_xml_files_scoresQC
-from temp_utils import plot_pca, compute_mean_correlation,\
+from cat12vbm_qc_utils import parse_xml_files_scoresQC
+from cat12vbm_qc_utils import plot_pca, compute_mean_correlation,\
                                 pdf_plottings, pdf_cat, mwp1toreport,\
                                 concat_tsv
-from temp_utils import img_to_array, get_keys
-from temp_utils import compute_brain_mask
+from cat12vbm_qc_utils import img_to_array, get_keys
+from cat12vbm_qc_utils import compute_brain_mask
 import glob
 
 

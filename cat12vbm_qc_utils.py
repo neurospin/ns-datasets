@@ -1,11 +1,17 @@
-import xml.etree.ElementTree as ET
-import argparse
-import glob
-import ast
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""usefull functions for cat12vbm correlation based automatic QC.
+
+@author: benoit.dufumier
+@author: julie.victor
+
+
+"""
+
 import re
+import xml.etree.ElementTree as ET
 import csv
 import traceback
-import sys
 from collections import OrderedDict
 
 import numpy as np
@@ -23,11 +29,26 @@ import scipy
 import nilearn
 import nilearn.masking
 
+# initialization for get_keys() function
 participant_re = re.compile("sub-([^_/]+)")
 session_re = re.compile("ses-([^_/]+)")
 run_re = re.compile("run-([a-zA-Z0-9]+)")
 
+
 def plot_pca(X, df_description):
+    """Plot nii image PCA of a specified cohort.
+
+    Parameters
+    ----------
+    X: array
+        the input data.
+    df_description: pandas Dataframe
+        descriptor of input data
+
+    Saving
+    -------
+    PCA graph result save in pdf format.
+    """
     # Assume that X has dimension (n_samples, ...)
     pca = PCA(n_components=2)
     # Do the SVD
@@ -38,7 +59,8 @@ def plot_pca(X, df_description):
     ax.scatter(PC[:, 0], PC[:, 1])
     # Put an annotation on each data point
     for i, participant_id in enumerate(df_description['participant_id']):
-        ax.annotate(participant_id, xy=(PC[i, 0], PC[i, 1]), xytext=(4,4), textcoords='offset pixels')
+        ax.annotate(participant_id, xy=(PC[i, 0], PC[i, 1]),
+                    xytext=(4, 4), textcoords='offset pixels')
 
     plt.xlabel("PC1 (var=%.2f)" % pca.explained_variance_ratio_[0])
     plt.ylabel("PC2 (var=%.2f)" % pca.explained_variance_ratio_[1])
@@ -47,28 +69,53 @@ def plot_pca(X, df_description):
     plt.savefig("pca.pdf")
     # plt.show()
 
+
 def compute_mean_correlation(X, df_description):
+    """Compute mean correlation of a specified cohort.
+
+    Parameters
+    ----------
+    X: array
+        the input data.
+    df_description: pandas Dataframe
+        descriptor of input data
+
+    Returns
+    -------
+    cor: pandas DataFrame
+        Sorted input data description based on mean correlation.
+        columns : 'participant_id', 'session', 'run', 'corr_mean'
+
+    Saving
+    -------
+    Heatmap of mean correlation saved in pdf format.
+
+    """
     # Compute the correlation matrix
     corr = np.corrcoef(X.reshape(len(X), -1))
-    # if nan because of variance 0, put corr to 0
+    # if nan because of variance 0, put corr to 0,
+    # problem encountered with runs of the same session probably
     for j in range(len(corr)):
         if np.isnan(corr[j]).any():
             corr[j] = np.nan_to_num(corr[j])
             print("nan in corr : \n", df_description['path'][j])
     # Compute the Z-transformation of the correlation
     F = 0.5 * np.log((1. + corr) / (1. - corr))
-
     # Compute the mean value for each sample by masking the diagonal
     np.fill_diagonal(F, 0)
-    # if inf beacause of corr =1 (except diag), replace inf by a big value
+    # if inf because of corr =1 (except diag), replace inf by a big value
+    # print if it is the case
     for i in range(len(F)):
         if np.isinf(F[i]).any():
             F[i] = np.nan_to_num(F[i])
             print("inf in F : \n", df_description['path'][i])
+    # average of F
     F_mean = F.sum(axis=1)/(len(F)-1)
-    # verifications
+    # check point
     if np.isnan(F_mean).any() or np.isnan(F).any():
-        raise ValueError("F_mean contains nan {0},{1}, {2}".format(F, F_mean, np.isnan(F).any()))
+        raise ValueError("F_mean contains nan {0},{1}, {2}"
+                         .format(F, F_mean, np.isnan(F).any()))
+    # reintroduce diagonal values for plot
     np.fill_diagonal(F, 1)
     # Get the index sorted by descending Z-corrected mean correlation values
     sort_idx = np.argsort(F_mean)
@@ -83,45 +130,96 @@ def compute_mean_correlation(X, df_description):
     ax = sns.heatmap(Freorder, mask=None, cmap=cmap, vmin=-1, vmax=1, center=0)
     plt.savefig("corr_mat.pdf")
     # plt.show()
-    cor = pd.DataFrame(dict(participant_id=participant_ids, session=sessions_ids, run=run_ids, corr_mean=F_mean[sort_idx]))
-    cor = cor.reindex(['participant_id', 'session', 'run', 'corr_mean'], axis='columns')
+    cor = pd.DataFrame(dict(participant_id=participant_ids,
+                            session=sessions_ids, run=run_ids,
+                            corr_mean=F_mean[sort_idx]))
+    cor = cor.reindex(['participant_id', 'session', 'run', 'corr_mean'],
+                      axis='columns')
     return cor
 
+
 def pdf_plottings(nii_filenames, mean_corr, output_pdf, limit=None):
+    """Plot sorted nii images of a specified cohort based on mean correlation.
+
+    Parameters
+    ----------
+    nii_filenames: pandas Dataframe
+        descriptor of input data.
+    mean_corr: array
+        the mean correlation data.
+    output_pdf: filename of the output pdf.
+    limit : maximal number of diapo in the pdf
+        default=None
+
+    Saving
+    -------
+    Nii images Diaporama sorted by mean correlation saved in pdf format.
+    columns: wm cat12vbm NII image (1 slice), mwp1 NII images (6 slices)
+    rows:sagittal, coronal, axial mri.
+
+
+    """
+    # initialise size
     max_range = limit or len(nii_filenames)
+    # create pdf output
     pdf = PdfPages(output_pdf)
+    # plot slices
     for i, nii_file in list(enumerate(nii_filenames))[:max_range]:
         fig = plt.figure(figsize=(30, 20))
         gs = GridSpec(3, 7, figure=fig)
+        # mw
         ax1 = fig.add_subplot(gs[0, 0])
         ax2 = fig.add_subplot(gs[1, 0])
         ax3 = fig.add_subplot(gs[2, 0])
+        # wmp1
         ax4 = fig.add_subplot(gs[0, 1:])
         ax5 = fig.add_subplot(gs[1, 1:])
         ax6 = fig.add_subplot(gs[2, 1:])
         nii = nibabel.load(nii_file)
-        nii_ref = nii_file.replace("mwp1sub","wmsub")
+        nii_ref = nii_file.replace("mwp1sub", "wmsub")
         nii_ref = nibabel.load(nii_ref)
         plt.suptitle('Subject %s, session %s, run %s with mean '
                      'correlation %.3f'
                      % (mean_corr[i][0], mean_corr[i][1],
                         mean_corr[i][2], mean_corr[i][3]),
                      fontsize=40)
-        plotting.plot_anat(nii_ref, figure=fig, axes=ax1, dim=0, cut_coords=1, display_mode='x')
-        plotting.plot_anat(nii_ref, figure=fig, axes=ax2, dim=0, cut_coords=1, display_mode='y')
-        plotting.plot_anat(nii_ref, figure=fig, axes=ax3, dim=0, cut_coords=1, display_mode='z')
+        # mw
+        plotting.plot_anat(nii_ref, figure=fig, axes=ax1, dim=0, cut_coords=1,
+                           display_mode='x')
+        plotting.plot_anat(nii_ref, figure=fig, axes=ax2, dim=0, cut_coords=1,
+                           display_mode='y')
+        plotting.plot_anat(nii_ref, figure=fig, axes=ax3, dim=0, cut_coords=1,
+                           display_mode='z')
+        # wmp1
         plotting.plot_anat(nii, figure=fig, axes=ax4, dim=-1,
                            cut_coords=6, display_mode='x')
         plotting.plot_anat(nii, figure=fig, axes=ax5, dim=-1,
                            cut_coords=6, display_mode='y')
         plotting.plot_anat(nii, figure=fig, axes=ax6, dim=-1,
                            cut_coords=6, display_mode='z')
+        # resize
         plt.subplots_adjust(wspace=0, hspace=0, top=0.9, bottom=0.1)
+        # save
         pdf.savefig()
         plt.close(fig)
     pdf.close()
 
+
 def pdf_cat(pdf_filenames, output_pdf):
+    """Concatenation of pdf files in one big pdf.
+
+    Parameters
+    ----------
+    pdf_filenames: pandas Dataframe
+        descriptor of input data.
+    output_pdf: filename of the output pdf.
+
+    Saving
+    -------
+    Big cat12vbm pdf reports sorted by mean correlation.
+
+
+    """
     pdfWriter = PdfFileWriter()
     for file in pdf_filenames:
         pdfFileObj = open(file, 'rb')
@@ -133,7 +231,22 @@ def pdf_cat(pdf_filenames, output_pdf):
     pdfWriter.write(pdfOutput)
     pdfOutput.close()
 
+
 def mwp1toreport(nii_filenames, root_report):
+    """Generate report filenames from mwp1 image filenames.
+
+    Parameters
+    ----------
+    nii_filenames: pandas Dataframe
+        descriptor of input data.
+    root_report: root of the cat12vbm report files
+
+    Returns
+    -------
+    reports_list: list of the cat12vbm reports sorted by mean correlation
+
+
+    """
     reports_list = []
     for i in nii_filenames:
         dico = get_keys(i)
@@ -161,7 +274,24 @@ def mwp1toreport(nii_filenames, root_report):
 
     return reports_list
 
+
 def concat_tsv(mean_corr, path_score):
+    """Merge mean correlation and cat12 scores tsv.
+
+    Parameters
+    ----------
+    mean_corr: pandas Dataframe
+        descriptor of input data.
+    path_score: path of the scoresQC.tsv file
+
+    Returns
+    -------
+    res: pandas Dataframe
+        columns: 'participant_id', 'session', 'run', 'corr_mean',
+                 'NCR', 'ICR', 'IQR'.
+
+
+    """
     score = pd.read_csv(path_score, sep='\t')
     corr = pd.read_csv(mean_corr, sep='\t')
     res = corr.merge(score, how='outer', on=['participant_id', 'session', 'run'])
@@ -170,6 +300,7 @@ def concat_tsv(mean_corr, path_score):
 
 def get_keys(filename):
     """
+    Warning: different from utils.py, run and ses set to 1 by default.
     Extract keys from bids filename. Check consistency of filename.
 
     Parameters
@@ -224,6 +355,24 @@ def get_keys(filename):
     return keys
 
 def parse_xml_files_scoresQC(xml_filenames, output_file=None):
+    """Create scoresQC.tsv file.
+
+    Parameters
+    ----------
+    xml_filenames: list
+        list of xml_filenames
+    output_file: string
+        filename of the output file
+
+    Returns
+    -------
+    output: dict
+        dictionary of cat12vbm scores
+
+    Saving
+    -------
+    scoresQC.tsv : NCR, ICR, IQR of cat12vbm reports.
+    """
     # organized as /participant_id/sess_id/[TIV, GM, WM, CSF, ROIs]
     output = dict()
     for xml_file in xml_filenames:
@@ -269,6 +418,7 @@ def parse_xml_files_scoresQC(xml_filenames, output_file=None):
 
 def img_to_array(img_filenames, check_same_referential=True, expected=dict()):
     """
+    Warning : Different from util.py df.path and not df.ni_path
     Convert nii images to array (n_subjects, 1, , image_axis0, image_axis1, ...)
     Assume BIDS organisation of file to retrive participant_id, session and run.
 

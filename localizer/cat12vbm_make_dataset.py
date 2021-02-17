@@ -1,5 +1,5 @@
 import sys
-sys.path.append("/volatile/git/ns-datasets")
+sys.path.append("/neurospin/psy_sbox/git/ns-datasets")
 from utils import cat12_nii2npy
 
 ## Dataset name for the generated output .npy and .csv files

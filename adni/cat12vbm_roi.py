@@ -1,3 +1,5 @@
+import sys
+sys.path.append("/neurospin/psy_sbox/git/ns-datasets")
 import xml.etree.ElementTree as ET
 import argparse
 import glob
@@ -6,7 +8,7 @@ import re
 import csv
 import traceback
 import sys
-from nitk.bids.bids_utils import get_keys
+from cat12vbm_qc_utils import get_keys
 
 def parse_xml_files(xml_filenames, output_file=None):
     # organized as /participant_id/sess_id/[TIV, GM, WM, CSF, ROIs]

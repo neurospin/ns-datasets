@@ -1,13 +1,15 @@
+import sys
+sys.path.append("/neurospin/psy_sbox/git/ns-datasets")
 import pandas as pd
 import os
 import argparse
 import nibabel
-from nitk.cat12vbm.xml2csvscores import parse_xml_files_scoresQC
-from nitk.image.img_qc import plot_pca, compute_mean_correlation,\
+from cat12vbm_qc_utils import parse_xml_files_scoresQC
+from cat12vbm_qc_utils import plot_pca, compute_mean_correlation,\
                                 pdf_plottings, pdf_cat, mwp1toreport,\
                                 concat_tsv
-from nitk.image.img_to_array import img_to_array
-from nitk.image.img_brain_mask import compute_brain_mask
+from cat12vbm_qc_utils import img_to_array
+from cat12vbm_qc_utils import compute_brain_mask
 
 
 def launch_cat12_qc(img_filenames, mask_filenames, root_cat12vbm, inputscores):

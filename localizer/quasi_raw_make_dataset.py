@@ -1,3 +1,5 @@
+import sys
+sys.path.append("/neurospin/psy_sbox/git/ns-datasets")
 from utils import quasi_raw_nii2npy
 from localizer.cat12vbm_make_dataset import phenotype_path, sep, dataset, output_path, id_type
 
