@@ -23,7 +23,7 @@ import seaborn as sns
 import pandas as pd
 import nibabel
 from nilearn import plotting
-from PyPDF2 import PdfFileReader, PdfFileWriter
+from PyPDF2 import PdfFileReader, PdfFileWriter, PdfFileMerger
 import os
 import scipy
 import nilearn
@@ -210,8 +210,8 @@ def pdf_cat(pdf_filenames, output_pdf):
 
     Parameters
     ----------
-    pdf_filenames: pandas Dataframe
-        descriptor of input data.
+    pdf_filenames: list
+        filenames of input data.
     output_pdf: filename of the output pdf.
 
     Saving
@@ -232,12 +232,99 @@ def pdf_cat(pdf_filenames, output_pdf):
     pdfOutput.close()
 
 
+def pdf_cat2(pdf_filenames, output_pdf, batchsize):
+    """Concatenation of pdf files in one big pdf.
+    Usefull, in case of a large amount of data.
+
+    Parameters
+    ----------
+    pdf_filenames: list
+        filenames of input data.
+    output_pdf: string
+        filename of the output pdf.
+    batchsize: int
+        number of dia in one batch
+
+    Saving
+    -------
+    Big cat12vbm pdf reports sorted by mean correlation.
+
+
+    """
+    folder_pdf = output_pdf.split(os.sep)[0:-1]
+    folder_pdf = os.sep.join(folder_pdf)
+    # holds a batch of pdf names
+    batch_pdfs = []
+    # collects all batches
+    list_of_batches = []
+    # make batches after this number of files
+    print("Batchsize: {0}".format(str(batchsize)))
+
+    # Loop over the list with all pdf names
+    # and split them into batches (=batch_pdfs).
+    # Collect each batch in list "list_of_batches".
+    for count, pdf in enumerate(pdf_filenames, 1):
+        batch_pdfs.append(pdf)
+        if count % batchsize == 0:
+            list_of_batches.append(batch_pdfs)
+            batch_pdfs = []
+        # if you loop longer than the number of pdfs, something is wrong. exit.
+        if count > len(pdf_filenames) + 2:
+            print('List count larger than number of PDFs.')
+            os.sys.exit(1)
+
+    list_of_batches.append(batch_pdfs)
+    print("Number of batches: {0}".format(str(len(list_of_batches))))
+
+    i = 1
+    # loop over all batches (=list_of_batches)
+    for batchlist in list_of_batches:
+        print("Processing Batch: {0} with length: {1}".format(str(i), str(len(batchlist))))
+        if len(batchlist) > 0:
+            # Start the PDF merger for each batch and close it after the batch.
+            #  If you try to merge too many pdfs at once, you get a "too many open files" error.
+            merger = PdfFileMerger()
+            for pdf in batchlist:
+                try:
+                    with open(pdf, "rb") as file:
+                        merger.append(PdfFileReader(file))
+
+                except:
+                    print("error merging: " + pdf)
+
+            # Close merger after the batch!
+            merger.write("{0}/Batch-{1}.pdf".format(folder_pdf, str(i)))
+            merger.close()
+        i += 1
+
+    # Create list of batch filenames
+    list_batch_filenames = os.listdir(folder_pdf)
+    list_batch_filenames = [i for i in list_batch_filenames if re.search("Batch-[0-9]*.pdf", i)]
+    list_batch_filenames = sorted(list_batch_filenames)
+    print("batches to merge : {0}".format(list_batch_filenames))
+
+    # Merge batches
+    pdfWriter = PdfFileWriter()
+    for file in list_batch_filenames:
+        pdfFileObj = open(file, 'rb')
+        pdfReader = PdfFileReader(pdfFileObj)
+        for pageNum in range(pdfReader.numPages):
+            pageObj = pdfReader.getPage(pageNum)
+            pdfWriter.addPage(pageObj)
+    pdfOutput = open(output_pdf, 'wb')
+    pdfWriter.write(pdfOutput)
+    pdfOutput.close()
+
+    print('Check folder: \" {0} \" for PDFs.'.format(output_pdf))
+    return 0
+
+
 def mwp1toreport(nii_filenames, root_report):
     """Generate report filenames from mwp1 image filenames.
 
     Parameters
     ----------
-    nii_filenames: pandas Dataframe
+    nii_filenames: list
         descriptor of input data.
     root_report: root of the cat12vbm report files
 
@@ -297,6 +384,19 @@ def concat_tsv(mean_corr, path_score):
     res = corr.merge(score, how='outer', on=['participant_id', 'session', 'run'])
 
     return res
+
+def reconstruct_ordored_list(img_filenames, qc_filename):
+    ordored_list = [0 for i in range(len(img_filenames))]
+    qc = pd.read_csv(qc_filename, sep='\t')
+    for index, row in qc.iterrows():
+        sub = str(row['participant_id'])
+        ses = str(row['session'])
+        run = str(row['run'])
+        for filename in img_filenames:
+            if sub in filename and ses in filename and run in filename:
+                ordored_list[index] = filename
+    return ordored_list
+
 
 def get_keys(filename):
     """

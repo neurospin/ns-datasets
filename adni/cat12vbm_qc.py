@@ -4,9 +4,9 @@ import pandas as pd
 import os
 import argparse
 import nibabel
-from cat12vbm_qc_utils import parse_xml_files_scoresQC
+from cat12vbm_qc_utils import parse_xml_files_scoresQC, reconstruct_ordored_list
 from cat12vbm_qc_utils import plot_pca, compute_mean_correlation,\
-                                pdf_plottings, pdf_cat, mwp1toreport,\
+                                pdf_plottings, pdf_cat, pdf_cat2, mwp1toreport,\
                                 concat_tsv
 from cat12vbm_qc_utils import img_to_array, get_keys
 from cat12vbm_qc_utils import compute_brain_mask
@@ -136,6 +136,15 @@ def main():
     launch_cat12_qc(img_filenames, mask_filenames, root_cat12vbm, input_qcscores)
     apply_qc_limit_criteria(root_cat12vbm)
     cat12err(study_path, root_cat12vbm)
+
+    # pdf concatenation failed the firt time
+    # (to much files open at the same time), so i used pdf_cat2
+    # qc_filename = "/neurospin/cati/ADNI/adni/BIDS_qc/qc.tsv"
+    # nii_filenames_sorted = reconstruct_ordored_list(img_filenames, qc_filename)
+    # nii_filenames_pdf = mwp1toreport(nii_filenames_sorted, root_cat12vbm)
+    # reportpdf = "/neurospin/cati/ADNI/adni/BIDS_qc/cat12_reports.pdf"
+    # pdf_cat2(nii_filenames_pdf, reportpdf, 1000)
+
 
     # COMMAND Terminal
     # python3 /neurospin/psy_sbox/git/ns-datasets/adni/cat12vbm_qc.py --input /neurospin/cati/ADNI/adni/BIDS/sub-*/ses-*/anat/mri/mwp1sub[-_0-9a-zA-Z]*_T1w.nii --input_qcscores /neurospin/cati/ADNI/adni/BIDS/sub-*/ses-*/anat/report/cat_sub-*_T1w.xml --root_cat12vbm /neurospin/cati/ADNI/adni/BIDS

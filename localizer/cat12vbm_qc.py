@@ -118,11 +118,11 @@ def main():
     study_path = root_cat12vbm.split(os.sep)[0:-2]
     study_path = os.sep.join(study_path)
 
-    #launch_cat12_qc(img_filenames, mask_filenames, root_cat12vbm, input_qcscores)
+    launch_cat12_qc(img_filenames, mask_filenames, root_cat12vbm, input_qcscores)
     apply_qc_limit_criteria(study_path, root_cat12vbm)
 
     # COMMAND Terminal
-    # python3 /volatile/git/ns-datasets/hbn/cat12vbm_qc.py --input /neurospin/psy/localizer/derivatives/cat12-12.6_vbm/sub-*/ses-*/anat/mri/mwp1sub[-_0-9a-zA-Z]*_T1w.nii --input_qcscores /neurospin/psy/localizer/derivatives/cat12-12.6_vbm/sub-*/ses-*/anat/report/cat_sub-*_T1w.xml --root_cat12vbm /neurospin/psy/localizer/derivatives/cat12-12.6_vbm
+    # python3 /neurospin/psy_sbox/git/ns-datasets/hbn/cat12vbm_qc.py --input /neurospin/psy/localizer/derivatives/cat12-12.6_vbm/sub-*/ses-*/anat/mri/mwp1sub[-_0-9a-zA-Z]*_T1w.nii --input_qcscores /neurospin/psy/localizer/derivatives/cat12-12.6_vbm/sub-*/ses-*/anat/report/cat_sub-*_T1w.xml --root_cat12vbm /neurospin/psy/localizer/derivatives/cat12-12.6_vbm
 
 if __name__ == "__main__":
     main()
