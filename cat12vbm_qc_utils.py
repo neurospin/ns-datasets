@@ -386,6 +386,22 @@ def concat_tsv(mean_corr, path_score):
     return res
 
 def reconstruct_ordored_list(img_filenames, qc_filename):
+    """Reconstruct ordored mwp1 nii images filenames from qc.tsv.
+
+    Parameters
+    ----------
+    img_filenames: list
+        mwp1 nii filenames
+    qc_filename: string
+        path to the qc.tsv file
+
+    Returns
+    -------
+    ordored_list: list
+        Ordored list of mwp1 nii image filenames by mean correlation.
+
+
+    """
     ordored_list = [0 for i in range(len(img_filenames))]
     qc = pd.read_csv(qc_filename, sep='\t')
     for index, row in qc.iterrows():
