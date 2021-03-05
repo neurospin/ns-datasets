@@ -191,12 +191,10 @@ def merge_ni_df(NI_arr, NI_participants_df, participants_df, qc=None, participan
     # NI_participants_merged.drop('index')
     return NI_arr[idx_to_keep], NI_participants, NI_rois
 
-def quasi_raw_nii2npy(nii_path, phenotype_path, dataset_name, output_path, qc=None, sep='\t', id_type=str,
+def quasi_raw_nii2npy(nii_path, phenotype, dataset_name, output_path, qc=None, sep='\t', id_type=str,
             check = dict(shape=(121, 145, 121), zooms=(1.5, 1.5, 1.5))):
     ########################################################################################################################
 
-
-    phenotype = pd.read_csv(phenotype_path, sep=sep)
     qc = pd.read_csv(qc, sep=sep) if qc is not None else None
 
     if 'TIV' in phenotype:
@@ -238,27 +236,31 @@ def quasi_raw_nii2npy(nii_path, phenotype_path, dataset_name, output_path, qc=No
 
     print('--> {} img loaded'.format(len(NI_participants_df)))
     print("## Merge nii's participant_id with participants.tsv")
-    NI_arr, NI_participants_df = merge_ni_df(NI_arr, NI_participants_df, participants_df,
+    NI_arr, NI_participants_df, Ni_rois_df = merge_ni_df(NI_arr, NI_participants_df, participants_df,
                                                          qc=qc, id_type=id_type)
 
     print('--> Remaining samples: {} / {}'.format(len(NI_participants_df), len(participants_df)))
+    print('--> Remaining samples: {} / {}'.format(len(Ni_rois_df), len(participants_df)))
 
     print("## Save the new participants.tsv")
     NI_participants_df.to_csv(OUTPUT_QUASI_RAW(dataset_name, output_path, type="participants", ext="tsv"),
                               index=False, sep=sep)
+    Ni_rois_df.to_csv(OUTPUT_QUASI_RAW(dataset_name, output_path, type="roi", ext="tsv"),
+                              index=False, sep=sep)
     print("## Save the raw npy file (with shape {})".format(NI_arr.shape))
     np.save(OUTPUT_QUASI_RAW(dataset_name, output_path, type="data64", ext="npy"), NI_arr)
+    np.save(OUTPUT_QUASI_RAW(dataset_name, output_path, type="data64", ext="npy"), NI_arr)
+    
 
     ######################################################################################################################
     # Deallocate the memory
     del NI_arr
 
-def cat12_nii2npy(nii_path, phenotype_path, dataset, output_path, qc=None, sep='\t', id_type=str,
+def cat12_nii2npy(nii_path, phenotype, dataset, output_path, qc=None, sep='\t', id_type=str,
             check = dict(shape=(121, 145, 121), zooms=(1.5, 1.5, 1.5))):
     ########################################################################################################################
     # Read phenotypes
 
-    phenotype = pd.read_csv(phenotype_path, sep=sep)
     qc = pd.read_csv(qc, sep=sep) if qc is not None else None
 
     if 'TIV' in phenotype:
